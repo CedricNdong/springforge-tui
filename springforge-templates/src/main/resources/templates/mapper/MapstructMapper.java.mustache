@@ -1,0 +1,17 @@
+package {{config.mapperPackage}};
+
+import {{config.dtoPackage}}.{{entity.name}}RequestDto;
+import {{config.dtoPackage}}.{{entity.name}}ResponseDto;
+import {{entity.package}}.{{entity.name}};
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingTarget;
+
+@Mapper(componentModel = "spring")
+public interface {{entity.name}}Mapper {
+
+    {{entity.name}}ResponseDto toResponseDto({{entity.name}} entity);
+
+    {{entity.name}} toEntity({{entity.name}}RequestDto dto);
+
+    void updateEntityFromDto({{entity.name}}RequestDto dto, @MappingTarget {{entity.name}} entity);
+}

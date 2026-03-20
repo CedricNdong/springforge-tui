@@ -1,0 +1,16 @@
+entities:
+  - name: Product
+    package: com.example.model
+    lombok: true
+    fields:
+      - name: id
+        type: Long
+        id: true
+      - name: name
+        type: String
+        nullable: false
+      - name: price
+        type: BigDecimal
+      - name: category
+        type: Category
+        relation: ManyToOne

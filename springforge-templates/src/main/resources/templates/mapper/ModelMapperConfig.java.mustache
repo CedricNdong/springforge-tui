@@ -1,0 +1,29 @@
+package {{config.mapperPackage}};
+
+import {{config.dtoPackage}}.{{entity.name}}RequestDto;
+import {{config.dtoPackage}}.{{entity.name}}ResponseDto;
+import {{entity.package}}.{{entity.name}};
+import org.modelmapper.ModelMapper;
+import org.springframework.stereotype.Component;
+
+@Component
+public class {{entity.name}}Mapper {
+
+    private final ModelMapper modelMapper;
+
+    public {{entity.name}}Mapper(ModelMapper modelMapper) {
+        this.modelMapper = modelMapper;
+    }
+
+    public {{entity.name}}ResponseDto toResponseDto({{entity.name}} entity) {
+        return modelMapper.map(entity, {{entity.name}}ResponseDto.class);
+    }
+
+    public {{entity.name}} toEntity({{entity.name}}RequestDto dto) {
+        return modelMapper.map(dto, {{entity.name}}.class);
+    }
+
+    public void updateEntityFromDto({{entity.name}}RequestDto dto, {{entity.name}} entity) {
+        modelMapper.map(dto, entity);
+    }
+}

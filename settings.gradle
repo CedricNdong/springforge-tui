@@ -1,3 +1,5 @@
 rootProject.name = 'springforge-tui'
 
 include 'springforge-cli'
+include 'springforge-engine'
+include 'springforge-templates'

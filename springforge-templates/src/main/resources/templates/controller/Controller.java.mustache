@@ -1,0 +1,58 @@
+package {{config.controllerPackage}};
+
+import {{config.dtoPackage}}.{{entity.name}}RequestDto;
+import {{config.dtoPackage}}.{{entity.name}}ResponseDto;
+import {{config.servicePackage}}.{{entity.name}}Service;
+import {{config.namespace}}.validation.Valid;
+{{#config.useLombok}}
+import lombok.RequiredArgsConstructor;
+{{/config.useLombok}}
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("{{config.apiPath}}")
+{{#config.useLombok}}
+@RequiredArgsConstructor
+{{/config.useLombok}}
+public class {{entity.name}}Controller {
+
+    private final {{entity.name}}Service {{entity.nameLower}}Service;
+{{^config.useLombok}}
+
+    public {{entity.name}}Controller({{entity.name}}Service {{entity.nameLower}}Service) {
+        this.{{entity.nameLower}}Service = {{entity.nameLower}}Service;
+    }
+{{/config.useLombok}}
+
+    @GetMapping
+    public ResponseEntity<Page<{{entity.name}}ResponseDto>> getAll(Pageable pageable) {
+        return ResponseEntity.ok({{entity.nameLower}}Service.findAll(pageable));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<{{entity.name}}ResponseDto> getById(@PathVariable {{entity.idField.type}} id) {
+        return ResponseEntity.ok({{entity.nameLower}}Service.findById(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<{{entity.name}}ResponseDto> create(
+            @Valid @RequestBody {{entity.name}}RequestDto dto) {
+        return ResponseEntity.status(201).body({{entity.nameLower}}Service.create(dto));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<{{entity.name}}ResponseDto> update(
+            @PathVariable {{entity.idField.type}} id,
+            @Valid @RequestBody {{entity.name}}RequestDto dto) {
+        return ResponseEntity.ok({{entity.nameLower}}Service.update(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable {{entity.idField.type}} id) {
+        {{entity.nameLower}}Service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
