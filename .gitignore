@@ -1,0 +1,43 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# GraalVM native build output
+*-linux-x86_64
+*-macos-aarch64
+*-macos-x86_64
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Setup script — ne doit pas être versionné
+setup_github.sh
+
+# Secrets & config overrides
+*.env
+.env.local
+springforge-local.yml
+
+# Test output
+test-results/
+jacoco/
+
+# Distribution
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
