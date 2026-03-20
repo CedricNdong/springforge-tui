@@ -21,18 +21,18 @@ Reference docs:
 
 ## Technology Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Language | Java | 21 LTS |
-| CLI Framework | Picocli | 4.7+ |
-| TUI Framework | TamboUI | pinned commit (see Tech Design) |
-| AST Parser | JavaParser | 3.25+ |
-| YAML Parser | SnakeYAML | 2.x |
-| Template Engine | Mustache.java | 0.9.x |
-| Config Parsing | Jackson YAML | 2.x |
-| Build Tool | Gradle (Kotlin DSL) | 8.x |
+| Layer | Technology           | Version |
+|---|----------------------|---|
+| Language | Java                 | 21 LTS |
+| CLI Framework | Picocli              | 4.7+ |
+| TUI Framework | TamboUI              | pinned commit (see Tech Design) |
+| AST Parser | JavaParser           | 3.25+ |
+| YAML Parser | SnakeYAML            | 2.x |
+| Template Engine | Mustache.java        | 0.9.x |
+| Config Parsing | Jackson YAML         | 2.x |
+| Build Tool | Gradle (Groovy DSL)  | 8.x |
 | Native Build | GraalVM native-image | 25+ |
-| Testing | JUnit 5 + AssertJ | Latest |
+| Testing | JUnit 5 + AssertJ    | Latest |
 
 ---
 

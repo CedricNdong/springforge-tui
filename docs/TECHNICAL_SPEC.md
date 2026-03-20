@@ -133,7 +133,7 @@ EntityScanner → TemplateRenderer → FileWriter → stdout report
 | YAML Parser | SnakeYAML | 2.x | Standard Java YAML; Jackson YAML as alternative |
 | Template Engine | Mustache.java | 0.9.x | Logic-less, predictable, no classpath issues for native-image |
 | Config Parsing | Jackson YAML | 2.x | Type-safe `springforge.yml` binding |
-| Build Tool | Gradle (Kotlin DSL) | 8.x | Shadow plugin for fat jar; native-image plugin |
+| Build Tool | Gradle (Groovy DSL) | 8.x | Shadow plugin for fat jar; native-image plugin |
 | Native Build | GraalVM native-image | 25+ | Requires reflect-config.json for JavaParser + TamboUI |
 | Testing | JUnit 5 + AssertJ | Latest | Standard; GraalVM test support |
 | Distribution | JBang + Maven Central | Latest | Zero-install path via JBang |
