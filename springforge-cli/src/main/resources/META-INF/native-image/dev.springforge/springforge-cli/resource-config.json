@@ -1,0 +1,15 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": ".*\\.java$"
+      },
+      {
+        "pattern": "com/github/javaparser/.*\\.properties$"
+      },
+      {
+        "pattern": "META-INF/services/.*"
+      }
+    ]
+  }
+}
