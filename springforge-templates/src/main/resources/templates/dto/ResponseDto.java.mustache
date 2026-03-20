@@ -1,0 +1,33 @@
+package {{config.dtoPackage}};
+
+{{#config.useLombok}}
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+{{/config.useLombok}}
+
+{{#config.useLombok}}
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+{{/config.useLombok}}
+public class {{entity.name}}ResponseDto {
+
+{{#entity.fields}}
+    private {{dtoType}} {{dtoFieldName}};
+{{/entity.fields}}
+{{^config.useLombok}}
+{{#entity.fields}}
+
+    public {{dtoType}} get{{nameCapitalized}}() {
+        return {{dtoFieldName}};
+    }
+
+    public void set{{nameCapitalized}}({{dtoType}} {{dtoFieldName}}) {
+        this.{{dtoFieldName}} = {{dtoFieldName}};
+    }
+{{/entity.fields}}
+{{/config.useLombok}}
+}

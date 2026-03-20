@@ -1,0 +1,73 @@
+package {{config.servicePackage}}.impl;
+
+import {{config.dtoPackage}}.{{entity.name}}RequestDto;
+import {{config.dtoPackage}}.{{entity.name}}ResponseDto;
+import {{config.mapperPackage}}.{{entity.name}}Mapper;
+import {{config.repositoryPackage}}.{{entity.name}}Repository;
+import {{config.servicePackage}}.{{entity.name}}Service;
+import {{entity.package}}.{{entity.name}};
+{{#config.useLombok}}
+import lombok.RequiredArgsConstructor;
+{{/config.useLombok}}
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional
+{{#config.useLombok}}
+@RequiredArgsConstructor
+{{/config.useLombok}}
+public class {{entity.name}}ServiceImpl implements {{entity.name}}Service {
+
+    private final {{entity.name}}Repository {{entity.nameLower}}Repository;
+    private final {{entity.name}}Mapper {{entity.nameLower}}Mapper;
+{{^config.useLombok}}
+
+    public {{entity.name}}ServiceImpl({{entity.name}}Repository {{entity.nameLower}}Repository,
+                              {{entity.name}}Mapper {{entity.nameLower}}Mapper) {
+        this.{{entity.nameLower}}Repository = {{entity.nameLower}}Repository;
+        this.{{entity.nameLower}}Mapper = {{entity.nameLower}}Mapper;
+    }
+{{/config.useLombok}}
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<{{entity.name}}ResponseDto> findAll(Pageable pageable) {
+        return {{entity.nameLower}}Repository.findAll(pageable)
+                .map({{entity.nameLower}}Mapper::toResponseDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public {{entity.name}}ResponseDto findById({{entity.idField.type}} id) {
+        {{entity.name}} entity = {{entity.nameLower}}Repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("{{entity.name}} not found with id: " + id));
+        return {{entity.nameLower}}Mapper.toResponseDto(entity);
+    }
+
+    @Override
+    public {{entity.name}}ResponseDto create({{entity.name}}RequestDto dto) {
+        {{entity.name}} entity = {{entity.nameLower}}Mapper.toEntity(dto);
+        {{entity.name}} saved = {{entity.nameLower}}Repository.save(entity);
+        return {{entity.nameLower}}Mapper.toResponseDto(saved);
+    }
+
+    @Override
+    public {{entity.name}}ResponseDto update({{entity.idField.type}} id, {{entity.name}}RequestDto dto) {
+        {{entity.name}} entity = {{entity.nameLower}}Repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("{{entity.name}} not found with id: " + id));
+        {{entity.nameLower}}Mapper.updateEntityFromDto(dto, entity);
+        {{entity.name}} saved = {{entity.nameLower}}Repository.save(entity);
+        return {{entity.nameLower}}Mapper.toResponseDto(saved);
+    }
+
+    @Override
+    public void delete({{entity.idField.type}} id) {
+        if (!{{entity.nameLower}}Repository.existsById(id)) {
+            throw new RuntimeException("{{entity.name}} not found with id: " + id);
+        }
+        {{entity.nameLower}}Repository.deleteById(id);
+    }
+}

@@ -1,0 +1,34 @@
+package {{config.dtoPackage}};
+
+{{#config.useLombok}}
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+{{/config.useLombok}}
+import {{config.namespace}}.validation.constraints.NotNull;
+
+{{#config.useLombok}}
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+{{/config.useLombok}}
+public class {{entity.name}}RequestDto {
+
+{{#entity.nonIdFields}}
+    private {{dtoType}} {{dtoFieldName}};
+{{/entity.nonIdFields}}
+{{^config.useLombok}}
+{{#entity.nonIdFields}}
+
+    public {{dtoType}} get{{nameCapitalized}}() {
+        return {{dtoFieldName}};
+    }
+
+    public void set{{nameCapitalized}}({{dtoType}} {{dtoFieldName}}) {
+        this.{{dtoFieldName}} = {{dtoFieldName}};
+    }
+{{/entity.nonIdFields}}
+{{/config.useLombok}}
+}
