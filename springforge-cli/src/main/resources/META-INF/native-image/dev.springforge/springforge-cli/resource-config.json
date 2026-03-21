@@ -8,6 +8,9 @@
         "pattern": ".*\\.java$"
       },
       {
+        "pattern": "templates/.*\\.mustache$"
+      },
+      {
         "pattern": "com/github/javaparser/.*\\.properties$"
       },
       {
