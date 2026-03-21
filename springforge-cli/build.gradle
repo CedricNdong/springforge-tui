@@ -1,6 +1,7 @@
 plugins {
     id 'application'
     id 'org.graalvm.buildtools.native'
+    id 'maven-publish'
 }
 
 dependencies {
@@ -53,4 +54,50 @@ graalvmNative {
 
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs.addAll(["-Aproject=${project.group}/${project.name}"])
+}
+
+// Fat JAR: bundle all dependencies into a single JAR for distribution
+tasks.register('fatJar', Jar) {
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': application.mainClass
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    with jar
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'dev.springforge'
+            artifactId = 'springforge-tui'
+
+            artifact(tasks.named('fatJar'))
+
+            pom {
+                name = 'SpringForge TUI'
+                description = 'Terminal-first CLI tool for generating Spring Boot API stacks'
+                url = 'https://github.com/CedricNdong/springforge-tui'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = 'GitHubPackages'
+            url = uri('https://maven.pkg.github.com/CedricNdong/springforge-tui')
+            credentials {
+                username = System.getenv('GITHUB_ACTOR') ?: 'ci'
+                password = System.getenv('GITHUB_TOKEN') ?: ''
+            }
+        }
+    }
 }
