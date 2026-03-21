@@ -221,7 +221,8 @@ public class GenerateCommand implements Callable<Integer> {
         } else if (scanDir != null) {
             EntityScanner scanner = new EntityScanner();
             filesToParse.addAll(scanner.scanForEntityFiles(scanDir));
-        } else if (allEntities) {
+        } else {
+            // Default: auto-scan src/main/java (same as --all-entities)
             EntityScanner scanner = new EntityScanner();
             Path srcDir = Path.of(System.getProperty("user.dir"), "src/main/java");
             filesToParse.addAll(scanner.scanForEntityFiles(srcDir));
