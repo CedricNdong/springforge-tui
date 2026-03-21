@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation platform('dev.tamboui:tamboui-bom:0.2.0-SNAPSHOT')
+    implementation platform("dev.tamboui:tamboui-bom:${tamboUiVersion}")
     implementation 'dev.tamboui:tamboui-toolkit'
     implementation 'dev.tamboui:tamboui-picocli'
     implementation 'dev.tamboui:tamboui-jline3-backend'
