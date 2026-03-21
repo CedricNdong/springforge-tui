@@ -54,5 +54,5 @@ jobs:
       - name: Smoke test native binary
         run: |
           ./springforge-cli/build/native/nativeCompile/springforge --version
-          ./springforge-cli/build/native/nativeCompile/springforge --no-tui
-          ./springforge-cli/build/native/nativeCompile/springforge --no-tui springforge-cli/src/test/resources/SampleEntity.java
+          ./springforge-cli/build/native/nativeCompile/springforge --help
+          ./springforge-cli/build/native/nativeCompile/springforge generate --entity springforge-cli/src/test/resources/SampleEntity.java --dry-run
