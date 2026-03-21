@@ -3,6 +3,10 @@ plugins {
     id 'org.graalvm.buildtools.native' version '0.10.6' apply false
 }
 
+// TamboUI version pinned per CLAUDE.md rule #2 and PRD A3.
+// Do NOT use LATEST or open version ranges.
+ext.tamboUiVersion = '0.2.0-SNAPSHOT'
+
 subprojects {
     apply plugin: 'java'
 
