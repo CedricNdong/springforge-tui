@@ -202,7 +202,7 @@ public class GenerateCommand implements Callable<Integer> {
         MapperLib mapperLib = resolveMapperLib(yamlConfig);
         ConflictStrategy conflictStrategy = resolveConflictStrategy(yamlConfig);
         Path basePath = resolveOutputPath();
-        String basePackage = yamlConfig.getProject().getBasePackage();
+        String basePackage = resolveBasePackage(yamlConfig, entities);
         boolean verbose = parent != null && parent.isVerbose();
 
         return new GenerationConfig(
@@ -325,6 +325,31 @@ public class GenerateCommand implements Callable<Integer> {
             return outputPath;
         }
         return Path.of(System.getProperty("user.dir"));
+    }
+
+    /**
+     * Resolves the base package for generated code. If the user has not
+     * configured a custom base package (i.e., still the default "com.example"),
+     * infer it from the entity package by stripping the trailing ".model"
+     * segment (e.g., "de.thegeekengineer.model" → "de.thegeekengineer").
+     */
+    String resolveBasePackage(SpringForgeConfig yamlConfig,
+                              List<EntityDescriptor> entities) {
+        String configured = yamlConfig.getProject().getBasePackage();
+        if (!"com.example".equals(configured) || entities.isEmpty()) {
+            return configured;
+        }
+        String entityPackage = entities.get(0).packageName();
+        if (entityPackage.endsWith(".model")) {
+            return entityPackage.substring(0, entityPackage.length() - ".model".length());
+        }
+        if (entityPackage.endsWith(".entity")) {
+            return entityPackage.substring(0, entityPackage.length() - ".entity".length());
+        }
+        if (entityPackage.endsWith(".domain")) {
+            return entityPackage.substring(0, entityPackage.length() - ".domain".length());
+        }
+        return entityPackage;
     }
 
     // Package-private setters for PreviewCommand delegation
