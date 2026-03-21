@@ -48,8 +48,13 @@ public final class TemplateContextBuilder {
         entityMap.put("fields", fieldMaps);
         entityMap.put("nonIdFields", nonIdFields);
 
-        Set<String> dtoImports = collectDtoImports(entity.fields());
+        Set<String> dtoImports = collectDtoImports(entity.fields(), false);
         entityMap.put("dtoImports", dtoImports.stream()
+            .map(imp -> Map.of("import", imp))
+            .toList());
+
+        Set<String> requestDtoImports = collectDtoImports(entity.fields(), true);
+        entityMap.put("requestDtoImports", requestDtoImports.stream()
             .map(imp -> Map.of("import", imp))
             .toList());
 
@@ -112,11 +117,15 @@ public final class TemplateContextBuilder {
 
         boolean needsMapperIgnore = false;
         if (field.isCircularRef() && field.relatedEntityName() != null) {
+            // Circular ref: flatten to Long ID in both Request and Response
             map.put("dtoType", "Long");
             map.put("dtoFieldName", field.name() + "Id");
+            map.put("requestDtoType", "Long");
+            map.put("requestDtoFieldName", field.name() + "Id");
             needsMapperIgnore = true;
         } else if (field.relation() != RelationType.NONE
                 && field.relatedEntityName() != null) {
+            // Response DTO: use nested DTO or list of DTOs
             if (field.relation() == RelationType.ONE_TO_MANY
                     || field.relation() == RelationType.MANY_TO_MANY) {
                 map.put("dtoType", "List<" + field.relatedEntityName() + "ResponseDto>");
@@ -125,10 +134,15 @@ public final class TemplateContextBuilder {
                 map.put("dtoType", field.relatedEntityName() + "ResponseDto");
                 map.put("dtoFieldName", field.name());
             }
+            // Request DTO: always flatten to Long ID
+            map.put("requestDtoType", "Long");
+            map.put("requestDtoFieldName", field.name() + "Id");
             needsMapperIgnore = true;
         } else {
             map.put("dtoType", field.type());
             map.put("dtoFieldName", field.name());
+            map.put("requestDtoType", field.type());
+            map.put("requestDtoFieldName", field.name());
         }
         map.put("mapperIgnore", needsMapperIgnore);
 
@@ -137,6 +151,12 @@ public final class TemplateContextBuilder {
             : Character.toUpperCase(dtoFieldName.charAt(0))
                 + dtoFieldName.substring(1);
         map.put("dtoFieldNameCapitalized", dtoCapitalized);
+
+        String reqFieldName = (String) map.get("requestDtoFieldName");
+        String reqCapitalized = reqFieldName.isEmpty() ? ""
+            : Character.toUpperCase(reqFieldName.charAt(0))
+                + reqFieldName.substring(1);
+        map.put("requestDtoFieldNameCapitalized", reqCapitalized);
 
         return map;
     }
@@ -157,22 +177,33 @@ public final class TemplateContextBuilder {
         Map.entry("Map", "java.util.Map")
     );
 
-    private static Set<String> collectDtoImports(List<FieldDescriptor> fields) {
+    private static Set<String> collectDtoImports(List<FieldDescriptor> fields,
+                                                   boolean forRequest) {
         Set<String> imports = new LinkedHashSet<>();
         for (FieldDescriptor field : fields) {
+            if (field.isId()) {
+                continue;
+            }
+            boolean hasRelation = field.relation() != RelationType.NONE
+                    && field.relatedEntityName() != null;
+
+            if (forRequest && hasRelation) {
+                // Request DTOs flatten relationships to Long — no List/DTO imports
+                continue;
+            }
+
             String type = field.type();
             if (TYPE_IMPORTS.containsKey(type)) {
                 imports.add(TYPE_IMPORTS.get(type));
             }
-            // Handle generic types like List<X>
             if (type.startsWith("List<")) {
                 imports.add("java.util.List");
             } else if (type.startsWith("Set<")) {
                 imports.add("java.util.Set");
             }
-            // Handle related entity DTO imports for OneToMany/ManyToMany
-            if ((field.relation() == RelationType.ONE_TO_MANY
-                    || field.relation() == RelationType.MANY_TO_MANY)
+            if (!forRequest
+                    && (field.relation() == RelationType.ONE_TO_MANY
+                        || field.relation() == RelationType.MANY_TO_MANY)
                     && field.relatedEntityName() != null
                     && !field.isCircularRef()) {
                 imports.add("java.util.List");
