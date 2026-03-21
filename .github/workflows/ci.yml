@@ -136,11 +136,7 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    needs: test
-
-    services:
-      docker:
-        image: docker:dind
+    needs: [ test, quality ]
 
     steps:
       - name: Checkout source code
@@ -172,7 +168,7 @@ jobs:
     name: Native Image Smoke Test
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    needs: [ test, quality ]
+    needs: integration-test
 
     steps:
       - name: Checkout source code
