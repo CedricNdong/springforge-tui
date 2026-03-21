@@ -25,11 +25,17 @@ detect_platform() {
     esac
 
     case "$arch" in
-        x86_64|amd64)   arch="x86_64" ;;
+        x86_64|amd64)
+            if [ "$os" = "macos" ]; then
+                echo "Error: macOS x86_64 (Intel) is not supported." >&2
+                echo "SpringForge supports macOS on Apple Silicon (aarch64) only." >&2
+                exit 1
+            fi
+            arch="x86_64"
+            ;;
         arm64|aarch64)   arch="aarch64" ;;
         *)
             echo "Error: Unsupported architecture: $arch" >&2
-            echo "SpringForge supports x86_64 and aarch64 only." >&2
             exit 1
             ;;
     esac

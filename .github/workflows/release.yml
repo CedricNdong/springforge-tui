@@ -25,9 +25,6 @@ jobs:
           - name: macos-aarch64
             os: macos-14
             artifact: springforge-macos-aarch64
-          - name: macos-x86_64
-            os: macos-13
-            artifact: springforge-macos-x86_64
 
     steps:
       - name: Checkout source code
@@ -87,5 +84,4 @@ jobs:
           files: |
             release-assets/springforge-linux-x86_64
             release-assets/springforge-macos-aarch64
-            release-assets/springforge-macos-x86_64
             install.sh
