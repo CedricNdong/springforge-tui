@@ -2,8 +2,10 @@ package dev.springforge.engine.renderer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import dev.springforge.engine.model.EntityDescriptor;
 import dev.springforge.engine.model.FieldDescriptor;
@@ -45,6 +47,11 @@ public final class TemplateContextBuilder {
         }
         entityMap.put("fields", fieldMaps);
         entityMap.put("nonIdFields", nonIdFields);
+
+        Set<String> dtoImports = collectDtoImports(entity.fields());
+        entityMap.put("dtoImports", dtoImports.stream()
+            .map(imp -> Map.of("import", imp))
+            .toList());
 
         entityMap.put("tableName", toSnakeCase(entity.className()));
         List<Map<String, Object>> columns = new ArrayList<>();
@@ -103,9 +110,11 @@ public final class TemplateContextBuilder {
             : Character.toUpperCase(field.name().charAt(0)) + field.name().substring(1);
         map.put("nameCapitalized", nameCapitalized);
 
+        boolean needsMapperIgnore = false;
         if (field.isCircularRef() && field.relatedEntityName() != null) {
             map.put("dtoType", "Long");
             map.put("dtoFieldName", field.name() + "Id");
+            needsMapperIgnore = true;
         } else if (field.relation() != RelationType.NONE
                 && field.relatedEntityName() != null) {
             if (field.relation() == RelationType.ONE_TO_MANY
@@ -116,12 +125,60 @@ public final class TemplateContextBuilder {
                 map.put("dtoType", field.relatedEntityName() + "ResponseDto");
                 map.put("dtoFieldName", field.name());
             }
+            needsMapperIgnore = true;
         } else {
             map.put("dtoType", field.type());
             map.put("dtoFieldName", field.name());
         }
+        map.put("mapperIgnore", needsMapperIgnore);
+
+        String dtoFieldName = (String) map.get("dtoFieldName");
+        String dtoCapitalized = dtoFieldName.isEmpty() ? ""
+            : Character.toUpperCase(dtoFieldName.charAt(0))
+                + dtoFieldName.substring(1);
+        map.put("dtoFieldNameCapitalized", dtoCapitalized);
 
         return map;
+    }
+
+    private static final Map<String, String> TYPE_IMPORTS = Map.ofEntries(
+        Map.entry("BigDecimal", "java.math.BigDecimal"),
+        Map.entry("BigInteger", "java.math.BigInteger"),
+        Map.entry("LocalDate", "java.time.LocalDate"),
+        Map.entry("LocalDateTime", "java.time.LocalDateTime"),
+        Map.entry("LocalTime", "java.time.LocalTime"),
+        Map.entry("Instant", "java.time.Instant"),
+        Map.entry("ZonedDateTime", "java.time.ZonedDateTime"),
+        Map.entry("OffsetDateTime", "java.time.OffsetDateTime"),
+        Map.entry("Duration", "java.time.Duration"),
+        Map.entry("UUID", "java.util.UUID"),
+        Map.entry("List", "java.util.List"),
+        Map.entry("Set", "java.util.Set"),
+        Map.entry("Map", "java.util.Map")
+    );
+
+    private static Set<String> collectDtoImports(List<FieldDescriptor> fields) {
+        Set<String> imports = new LinkedHashSet<>();
+        for (FieldDescriptor field : fields) {
+            String type = field.type();
+            if (TYPE_IMPORTS.containsKey(type)) {
+                imports.add(TYPE_IMPORTS.get(type));
+            }
+            // Handle generic types like List<X>
+            if (type.startsWith("List<")) {
+                imports.add("java.util.List");
+            } else if (type.startsWith("Set<")) {
+                imports.add("java.util.Set");
+            }
+            // Handle related entity DTO imports for OneToMany/ManyToMany
+            if ((field.relation() == RelationType.ONE_TO_MANY
+                    || field.relation() == RelationType.MANY_TO_MANY)
+                    && field.relatedEntityName() != null
+                    && !field.isCircularRef()) {
+                imports.add("java.util.List");
+            }
+        }
+        return imports;
     }
 
     private static String toSnakeCase(String name) {
