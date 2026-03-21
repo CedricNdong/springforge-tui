@@ -1,0 +1,18 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api project(':springforge-engine')
+
+    implementation platform('dev.tamboui:tamboui-bom:0.2.0-SNAPSHOT')
+    implementation 'dev.tamboui:tamboui-toolkit'
+    implementation 'dev.tamboui:tamboui-picocli'
+    implementation 'dev.tamboui:tamboui-jline3-backend'
+
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core:3.27.3'
+}
