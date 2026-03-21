@@ -327,28 +327,81 @@ public class GenerateCommand implements Callable<Integer> {
     }
 
     /**
-     * Resolves the output base directory. If no --output flag is given,
-     * infers the source root from the first discovered entity file path
-     * by stripping the package-derived suffix.
+     * Resolves the output base directory.
      *
-     * <p>Example: entity file at {@code src/main/java/de/foo/model/User.java}
-     * with package {@code de.foo.model} → source root is {@code src/main/java}.
+     * <ol>
+     *   <li>If {@code --output} flag is given, use it directly.</li>
+     *   <li>Otherwise, infer the source root from the first entity file path
+     *       by stripping the package suffix
+     *       (e.g. {@code src/main/java/de/foo/model/User.java}
+     *       with package {@code de.foo.model} → {@code src/main/java}).</li>
+     *   <li>If inference fails, warn the user and prompt interactively
+     *       (or fall back to {@code src/main/java} in non-interactive mode).</li>
+     * </ol>
      */
     Path resolveOutputPath(List<EntityDescriptor> entities) {
         if (outputPath != null) {
             return outputPath;
         }
-        if (!discoveredEntityFiles.isEmpty() && !entities.isEmpty()) {
-            Path firstFile = discoveredEntityFiles.get(0).toAbsolutePath().normalize();
-            String packagePath = entities.get(0).packageName().replace('.', '/');
-            String suffix = packagePath + "/" + entities.get(0).className() + ".java";
-            String filePath = firstFile.toString();
-            if (filePath.endsWith(suffix)) {
-                return Path.of(filePath.substring(0,
-                    filePath.length() - suffix.length() - 1));
-            }
+
+        Path inferred = inferSourceRoot(entities);
+        if (inferred != null) {
+            return inferred;
         }
-        return Path.of(System.getProperty("user.dir"), "src/main/java");
+
+        return promptForOutputPath();
+    }
+
+    private Path inferSourceRoot(List<EntityDescriptor> entities) {
+        if (discoveredEntityFiles.isEmpty() || entities.isEmpty()) {
+            return null;
+        }
+        Path firstFile = discoveredEntityFiles.get(0).toAbsolutePath().normalize();
+        String packagePath = entities.get(0).packageName().replace('.', '/');
+        String suffix = packagePath + "/" + entities.get(0).className() + ".java";
+        String filePath = firstFile.toString();
+        if (filePath.endsWith(suffix)) {
+            return Path.of(filePath.substring(0,
+                filePath.length() - suffix.length() - 1));
+        }
+        return null;
+    }
+
+    private Path promptForOutputPath() {
+        Path fallback = Path.of(System.getProperty("user.dir"), "src/main/java");
+        java.io.Console console = System.console();
+
+        if (console == null) {
+            LOG.warn("Could not auto-detect source root. "
+                + "Using fallback: {}. Use --output to override.", fallback);
+            return fallback;
+        }
+
+        System.err.println();
+        System.err.println("Warning: Could not auto-detect the source root directory.");
+        System.err.println("Without a springforge.yml or --output flag, generated files");
+        System.err.println("may not be placed in the correct location.");
+        System.err.println();
+        System.err.println("Options:");
+        System.err.println("  [1] Continue with default: " + fallback);
+        System.err.println("  [2] Enter a custom output path");
+        System.err.println("  [3] Abort (run 'springforge init' first)");
+        System.err.println();
+
+        String choice = console.readLine("Choose [1/2/3] (default: 1): ");
+        if (choice == null || choice.isBlank() || "1".equals(choice.trim())) {
+            return fallback;
+        }
+        if ("3".equals(choice.trim())) {
+            System.err.println("Aborted. Run 'springforge init' to create a config file.");
+            throw new RuntimeException("Generation aborted by user");
+        }
+        // Option 2: ask for path
+        String path = console.readLine("Enter output path: ");
+        if (path == null || path.isBlank()) {
+            return fallback;
+        }
+        return Path.of(path.trim());
     }
 
     /**
