@@ -5,8 +5,6 @@ import java.util.List;
 
 import dev.springforge.engine.model.FileGenerationResult;
 import dev.springforge.engine.model.GenerationReport;
-import dev.springforge.engine.model.GenerationStatus;
-
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.layout.Layout;
 import dev.tamboui.layout.Rect;
