@@ -130,7 +130,43 @@ jobs:
           retention-days: 5
 
   # ──────────────────────────────────────────────
-  # 4. GraalVM native image build + smoke test
+  # 4. Integration tests (Testcontainers + PostgreSQL)
+  # ──────────────────────────────────────────────
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: test
+
+    services:
+      docker:
+        image: docker:dind
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run integration tests
+        run: ./gradlew :springforge-integration-tests:integrationTest
+
+      - name: Publish integration test report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/build/test-results/integrationTest/TEST-*.xml'
+          check_name: Integration Test Results
+
+  # ──────────────────────────────────────────────
+  # 5. GraalVM native image build + smoke test
   # ──────────────────────────────────────────────
   native-image:
     name: Native Image Smoke Test
