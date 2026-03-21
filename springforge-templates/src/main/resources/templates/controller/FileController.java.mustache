@@ -1,0 +1,32 @@
+package {{config.controllerPackage}};
+
+{{#config.useLombok}}
+import lombok.RequiredArgsConstructor;
+{{/config.useLombok}}
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+@RequestMapping("{{config.apiPath}}")
+{{#config.useLombok}}
+@RequiredArgsConstructor
+{{/config.useLombok}}
+public class {{entity.name}}FileController {
+
+    private final {{entity.name}}Service {{entity.nameLower}}Service;
+{{^config.useLombok}}
+
+    public {{entity.name}}FileController({{entity.name}}Service {{entity.nameLower}}Service) {
+        this.{{entity.nameLower}}Service = {{entity.nameLower}}Service;
+    }
+{{/config.useLombok}}
+
+    @PostMapping("/{id}/upload")
+    public ResponseEntity<Void> uploadFile(
+            @PathVariable {{entity.idField.type}} id,
+            @RequestParam("file") MultipartFile file) {
+        // TODO: implement file upload logic
+        return ResponseEntity.ok().build();
+    }
+}

@@ -1,0 +1,19 @@
+package {{config.servicePackage}};
+
+import {{config.dtoPackage}}.{{entity.name}}RequestDto;
+import {{config.dtoPackage}}.{{entity.name}}ResponseDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+public interface {{entity.name}}Service {
+
+    Page<{{entity.name}}ResponseDto> findAll(Pageable pageable);
+
+    {{entity.name}}ResponseDto findById({{entity.idField.type}} id);
+
+    {{entity.name}}ResponseDto create({{entity.name}}RequestDto dto);
+
+    {{entity.name}}ResponseDto update({{entity.idField.type}} id, {{entity.name}}RequestDto dto);
+
+    void delete({{entity.idField.type}} id);
+}
