@@ -29,6 +29,10 @@ public final class OutputPathResolver {
                 config.servicePackage().replace('.', '/') + "/impl";
             case CONTROLLER, FILE_UPLOAD ->
                 config.controllerPackage().replace('.', '/');
+            case LIQUIBASE ->
+                "resources/db/changelog";
+            case FLYWAY ->
+                "resources/db/migration";
         };
 
         String fileName = FileNameResolver.resolve(entity.className(), layer);

@@ -344,6 +344,74 @@ class TemplateRendererTest {
         }
     }
 
+    @Nested
+    @DisplayName("Migration templates")
+    class MigrationTemplateTest {
+
+        @Test
+        @DisplayName("should render Liquibase changelog with createTable changeset")
+        void shouldRenderLiquibaseChangelog() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.LIQUIBASE));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(1);
+            String content = files.get(0).content();
+            assertThat(content).contains("<databaseChangeLog");
+            assertThat(content).contains("<changeSet id=\"create-user\" author=\"springforge\">");
+            assertThat(content).contains("<createTable tableName=\"user\">");
+            assertThat(content).contains("<column name=\"id\" type=\"BIGINT\"");
+            assertThat(content).contains("primaryKey=\"true\"");
+            assertThat(content).contains("<column name=\"username\" type=\"VARCHAR(255)\"");
+            assertThat(content).contains("<column name=\"email\" type=\"VARCHAR(255)\"");
+            assertThat(content).contains("unique=\"true\"");
+        }
+
+        @Test
+        @DisplayName("should render Flyway SQL migration with CREATE TABLE")
+        void shouldRenderFlywayMigration() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.FLYWAY));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(1);
+            String content = files.get(0).content();
+            assertThat(content).contains("CREATE TABLE user");
+            assertThat(content).contains("id BIGINT PRIMARY KEY");
+            assertThat(content).contains("username VARCHAR(255)");
+            assertThat(content).contains("email VARCHAR(255)");
+            assertThat(content).contains("UNIQUE");
+        }
+
+        @Test
+        @DisplayName("should generate migration scripts without applying them")
+        void shouldNotApplyMigrationScripts() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.LIQUIBASE));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(1);
+            assertThat(files.get(0).layer()).isEqualTo(Layer.LIQUIBASE);
+        }
+
+        @Test
+        @DisplayName("should resolve Liquibase output to db/changelog directory")
+        void shouldResolveLiquibaseOutputPath() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.LIQUIBASE));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files.get(0).outputPath().toString())
+                .contains("resources/db/changelog");
+        }
+
+        @Test
+        @DisplayName("should resolve Flyway output to db/migration directory")
+        void shouldResolveFlywayOutputPath() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.FLYWAY));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files.get(0).outputPath().toString())
+                .contains("resources/db/migration");
+        }
+    }
+
     @Test
     @DisplayName("should render all layers for a single entity")
     void shouldRenderAllLayers() {

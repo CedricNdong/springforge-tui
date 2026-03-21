@@ -10,15 +10,17 @@ import dev.springforge.engine.model.MapperLib;
  */
 public final class LayerTemplateMap {
 
-    private static final Map<Layer, String> TEMPLATES = Map.of(
-        Layer.DTO_REQUEST, "dto/RequestDto.java.mustache",
-        Layer.DTO_RESPONSE, "dto/ResponseDto.java.mustache",
-        Layer.MAPPER, "mapper/MapstructMapper.java.mustache",
-        Layer.REPOSITORY, "repository/Repository.java.mustache",
-        Layer.SERVICE, "service/Service.java.mustache",
-        Layer.SERVICE_IMPL, "service/ServiceImpl.java.mustache",
-        Layer.CONTROLLER, "controller/Controller.java.mustache",
-        Layer.FILE_UPLOAD, "controller/FileController.java.mustache"
+    private static final Map<Layer, String> TEMPLATES = Map.ofEntries(
+        Map.entry(Layer.DTO_REQUEST, "dto/RequestDto.java.mustache"),
+        Map.entry(Layer.DTO_RESPONSE, "dto/ResponseDto.java.mustache"),
+        Map.entry(Layer.MAPPER, "mapper/MapstructMapper.java.mustache"),
+        Map.entry(Layer.REPOSITORY, "repository/Repository.java.mustache"),
+        Map.entry(Layer.SERVICE, "service/Service.java.mustache"),
+        Map.entry(Layer.SERVICE_IMPL, "service/ServiceImpl.java.mustache"),
+        Map.entry(Layer.CONTROLLER, "controller/Controller.java.mustache"),
+        Map.entry(Layer.FILE_UPLOAD, "controller/FileController.java.mustache"),
+        Map.entry(Layer.LIQUIBASE, "migration/Liquibase.xml.mustache"),
+        Map.entry(Layer.FLYWAY, "migration/Flyway.sql.mustache")
     );
 
     private LayerTemplateMap() {}

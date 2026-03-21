@@ -46,6 +46,27 @@ public final class TemplateContextBuilder {
         entityMap.put("fields", fieldMaps);
         entityMap.put("nonIdFields", nonIdFields);
 
+        entityMap.put("tableName", toSnakeCase(entity.className()));
+        List<Map<String, Object>> columns = new ArrayList<>();
+        for (int i = 0; i < entity.fields().size(); i++) {
+            FieldDescriptor field = entity.fields().get(i);
+            if (field.relation() != RelationType.NONE) {
+                continue;
+            }
+            Map<String, Object> col = new HashMap<>();
+            col.put("columnName", toSnakeCase(field.name()));
+            col.put("columnType", javaTypeToSqlType(field.type()));
+            col.put("isPrimaryKey", field.isId());
+            col.put("isNullable", field.isNullable());
+            col.put("isUnique", field.isUnique());
+            col.put("isLast", false);
+            columns.add(col);
+        }
+        if (!columns.isEmpty()) {
+            columns.get(columns.size() - 1).put("isLast", true);
+        }
+        entityMap.put("columns", columns);
+
         ctx.put("entity", entityMap);
 
         Map<String, Object> configMap = new HashMap<>();
@@ -101,5 +122,35 @@ public final class TemplateContextBuilder {
         }
 
         return map;
+    }
+
+    private static String toSnakeCase(String name) {
+        return name.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+    }
+
+    private static final Map<String, String> SQL_TYPE_MAP = Map.ofEntries(
+        Map.entry("Long", "BIGINT"),
+        Map.entry("long", "BIGINT"),
+        Map.entry("Integer", "INTEGER"),
+        Map.entry("int", "INTEGER"),
+        Map.entry("String", "VARCHAR(255)"),
+        Map.entry("Boolean", "BOOLEAN"),
+        Map.entry("boolean", "BOOLEAN"),
+        Map.entry("Double", "DOUBLE"),
+        Map.entry("double", "DOUBLE"),
+        Map.entry("Float", "FLOAT"),
+        Map.entry("float", "FLOAT"),
+        Map.entry("BigDecimal", "DECIMAL(19,2)"),
+        Map.entry("LocalDate", "DATE"),
+        Map.entry("LocalDateTime", "TIMESTAMP"),
+        Map.entry("Instant", "TIMESTAMP"),
+        Map.entry("UUID", "UUID"),
+        Map.entry("byte[]", "BLOB"),
+        Map.entry("Short", "SMALLINT"),
+        Map.entry("short", "SMALLINT")
+    );
+
+    private static String javaTypeToSqlType(String javaType) {
+        return SQL_TYPE_MAP.getOrDefault(javaType, "VARCHAR(255)");
     }
 }

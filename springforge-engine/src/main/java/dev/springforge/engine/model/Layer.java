@@ -8,5 +8,7 @@ public enum Layer {
     SERVICE,
     SERVICE_IMPL,
     CONTROLLER,
-    FILE_UPLOAD
+    FILE_UPLOAD,
+    LIQUIBASE,
+    FLYWAY
 }
