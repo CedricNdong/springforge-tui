@@ -116,23 +116,42 @@ public final class TemplateContextBuilder {
         map.put("nameCapitalized", nameCapitalized);
 
         boolean needsMapperIgnore = false;
+        boolean hasResponseSourceMapping = false;
+        boolean responseMapperIgnore = false;
         if (field.isCircularRef() && field.relatedEntityName() != null) {
-            // Circular ref: flatten to Long ID in both Request and Response
-            map.put("dtoType", "Long");
-            map.put("dtoFieldName", field.name() + "Id");
+            boolean isCollection = field.relation() == RelationType.ONE_TO_MANY
+                    || field.relation() == RelationType.MANY_TO_MANY;
+            if (isCollection) {
+                // Circular ref collection: ignore in ResponseDto (can't map list.id)
+                map.put("dtoType", "List<Long>");
+                map.put("dtoFieldName", field.name() + "Ids");
+                responseMapperIgnore = true;
+            } else {
+                // Circular ref single: flatten to Long ID
+                map.put("dtoType", "Long");
+                map.put("dtoFieldName", field.name() + "Id");
+                map.put("responseSource", field.name() + ".id");
+                map.put("responseTarget", field.name() + "Id");
+                hasResponseSourceMapping = true;
+            }
             map.put("requestDtoType", "Long");
             map.put("requestDtoFieldName", field.name() + "Id");
             needsMapperIgnore = true;
         } else if (field.relation() != RelationType.NONE
                 && field.relatedEntityName() != null) {
-            // Response DTO: use nested DTO or list of DTOs
             if (field.relation() == RelationType.ONE_TO_MANY
                     || field.relation() == RelationType.MANY_TO_MANY) {
+                // Response DTO: list relationships are ignored (complex mapping)
                 map.put("dtoType", "List<" + field.relatedEntityName() + "ResponseDto>");
                 map.put("dtoFieldName", field.name());
+                responseMapperIgnore = true;
             } else {
-                map.put("dtoType", field.relatedEntityName() + "ResponseDto");
-                map.put("dtoFieldName", field.name());
+                // Response DTO: @ManyToOne/@OneToOne → flatten to Long ID
+                map.put("dtoType", "Long");
+                map.put("dtoFieldName", field.name() + "Id");
+                map.put("responseSource", field.name() + ".id");
+                map.put("responseTarget", field.name() + "Id");
+                hasResponseSourceMapping = true;
             }
             // Request DTO: always flatten to Long ID
             map.put("requestDtoType", "Long");
@@ -145,6 +164,8 @@ public final class TemplateContextBuilder {
             map.put("requestDtoFieldName", field.name());
         }
         map.put("mapperIgnore", needsMapperIgnore);
+        map.put("hasResponseSourceMapping", hasResponseSourceMapping);
+        map.put("responseMapperIgnore", responseMapperIgnore);
 
         String dtoFieldName = (String) map.get("dtoFieldName");
         String dtoCapitalized = dtoFieldName.isEmpty() ? ""
@@ -204,8 +225,7 @@ public final class TemplateContextBuilder {
             if (!forRequest
                     && (field.relation() == RelationType.ONE_TO_MANY
                         || field.relation() == RelationType.MANY_TO_MANY)
-                    && field.relatedEntityName() != null
-                    && !field.isCircularRef()) {
+                    && field.relatedEntityName() != null) {
                 imports.add("java.util.List");
             }
         }

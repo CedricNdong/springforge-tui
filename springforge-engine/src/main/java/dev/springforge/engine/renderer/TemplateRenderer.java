@@ -40,7 +40,16 @@ public class TemplateRenderer {
     }
 
     public TemplateRenderer(Path projectRoot) {
-        this.mustacheFactory = new DefaultMustacheFactory();
+        this.mustacheFactory = new DefaultMustacheFactory() {
+            @Override
+            public void encode(String value, java.io.Writer writer) {
+                try {
+                    writer.write(value);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
         this.userTemplateDir = projectRoot != null
             ? projectRoot.resolve(".springforge/templates")
             : null;
