@@ -2,41 +2,144 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main, develop ]
 
 permissions:
   contents: read
+  checks: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build & Test
-    runs-on: ubuntu-latest
+  # ──────────────────────────────────────────────
+  # 1. Compile all modules + upload build artifacts
+  # ──────────────────────────────────────────────
+  compile:
+    name: Compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
-      - name: Setup Gradle
+      - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and test
-        run: ./gradlew build
+      - name: Compile all modules
+        run: ./gradlew classes testClasses
 
-  native-image:
-    name: Native Image Smoke Test
-    runs-on: ubuntu-latest
-    needs: build
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            **/build/classes
+            **/build/generated
+            **/build/resources
+          retention-days: 1
+
+  # ──────────────────────────────────────────────
+  # 2. Run unit tests + publish JUnit report
+  # ──────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: compile
 
     steps:
-      - name: Checkout
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+
+      - name: Run all tests
+        run: ./gradlew test
+
+      - name: Publish test report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          check_name: JUnit Test Results
+
+  # ──────────────────────────────────────────────
+  # 3. Static analysis — SpotBugs + Checkstyle
+  # ──────────────────────────────────────────────
+  quality:
+    name: Code Quality (SpotBugs + Checkstyle)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: compile
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+
+      - name: Run Checkstyle
+        run: ./gradlew checkstyleMain checkstyleTest
+
+      - name: Run SpotBugs
+        run: ./gradlew spotbugsMain
+
+      - name: Upload quality reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-reports
+          path: |
+            **/build/reports/checkstyle/
+            **/build/reports/spotbugs/
+          retention-days: 5
+
+  # ──────────────────────────────────────────────
+  # 4. GraalVM native image build + smoke test
+  # ──────────────────────────────────────────────
+  native-image:
+    name: Native Image Smoke Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [ test, quality ]
+
+    steps:
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Set up GraalVM 21
@@ -45,14 +148,17 @@ jobs:
           java-version: 21
           distribution: graalvm
 
-      - name: Setup Gradle
+      - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build native image
         run: ./gradlew :springforge-cli:nativeCompile
 
-      - name: Smoke test native binary
-        run: |
-          ./springforge-cli/build/native/nativeCompile/springforge --version
-          ./springforge-cli/build/native/nativeCompile/springforge --no-tui
-          ./springforge-cli/build/native/nativeCompile/springforge --no-tui springforge-cli/src/test/resources/SampleEntity.java
+      - name: Smoke test — version
+        run: ./springforge-cli/build/native/nativeCompile/springforge --version
+
+      - name: Smoke test — help
+        run: ./springforge-cli/build/native/nativeCompile/springforge --help
+
+      - name: Smoke test — generate dry-run
+        run: ./springforge-cli/build/native/nativeCompile/springforge generate --entity springforge-cli/src/test/resources/SampleEntity.java --dry-run

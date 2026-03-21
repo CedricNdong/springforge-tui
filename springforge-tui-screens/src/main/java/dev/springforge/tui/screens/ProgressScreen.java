@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.springforge.engine.model.FileGenerationResult;
-import dev.springforge.engine.model.GenerationStatus;
 import dev.springforge.tui.state.GenerationProgressState;
 
 import dev.tamboui.layout.Constraint;
