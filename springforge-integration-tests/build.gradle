@@ -58,6 +58,7 @@ tasks.register('generateSpringForgeCode', JavaExec) {
 
 tasks.named('compileJava') {
     dependsOn 'generateSpringForgeCode'
+    options.compilerArgs.add('-parameters')
 }
 
 // ---------------------------------------------------------------------------
