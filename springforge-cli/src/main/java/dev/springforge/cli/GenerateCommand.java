@@ -194,6 +194,9 @@ public class GenerateCommand implements Callable<Integer> {
         return configLoader.load(configPath, projectRoot);
     }
 
+    /** Entity file paths discovered during scanning — used to infer source root. */
+    private List<Path> discoveredEntityFiles = List.of();
+
     GenerationConfig buildGenerationConfig(SpringForgeConfig yamlConfig)
             throws IOException {
         List<EntityDescriptor> entities = discoverEntities();
@@ -201,7 +204,7 @@ public class GenerateCommand implements Callable<Integer> {
         SpringVersion springVersion = resolveSpringVersion(yamlConfig);
         MapperLib mapperLib = resolveMapperLib(yamlConfig);
         ConflictStrategy conflictStrategy = resolveConflictStrategy(yamlConfig);
-        Path basePath = resolveOutputPath();
+        Path basePath = resolveOutputPath(entities);
         String basePackage = resolveBasePackage(yamlConfig, entities);
         boolean verbose = parent != null && parent.isVerbose();
 
@@ -227,6 +230,8 @@ public class GenerateCommand implements Callable<Integer> {
             Path srcDir = Path.of(System.getProperty("user.dir"), "src/main/java");
             filesToParse.addAll(scanner.scanForEntityFiles(srcDir));
         }
+
+        discoveredEntityFiles = List.copyOf(filesToParse);
 
         JavaAstEntityParser parser = new JavaAstEntityParser();
         List<EntityDescriptor> entities = new ArrayList<>();
@@ -321,11 +326,29 @@ public class GenerateCommand implements Callable<Integer> {
             : ConflictStrategy.SKIP;
     }
 
-    Path resolveOutputPath() {
+    /**
+     * Resolves the output base directory. If no --output flag is given,
+     * infers the source root from the first discovered entity file path
+     * by stripping the package-derived suffix.
+     *
+     * <p>Example: entity file at {@code src/main/java/de/foo/model/User.java}
+     * with package {@code de.foo.model} → source root is {@code src/main/java}.
+     */
+    Path resolveOutputPath(List<EntityDescriptor> entities) {
         if (outputPath != null) {
             return outputPath;
         }
-        return Path.of(System.getProperty("user.dir"));
+        if (!discoveredEntityFiles.isEmpty() && !entities.isEmpty()) {
+            Path firstFile = discoveredEntityFiles.get(0).toAbsolutePath().normalize();
+            String packagePath = entities.get(0).packageName().replace('.', '/');
+            String suffix = packagePath + "/" + entities.get(0).className() + ".java";
+            String filePath = firstFile.toString();
+            if (filePath.endsWith(suffix)) {
+                return Path.of(filePath.substring(0,
+                    filePath.length() - suffix.length() - 1));
+            }
+        }
+        return Path.of(System.getProperty("user.dir"), "src/main/java");
     }
 
     /**
