@@ -58,6 +58,7 @@ tasks.withType(JavaCompile).configureEach {
 
 // Fat JAR: bundle all dependencies into a single JAR for distribution
 tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
     archiveClassifier = 'all'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
