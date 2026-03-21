@@ -76,6 +76,24 @@
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
+  {
+    "name": "dev.springforge.config.TelemetryManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.config.TelemetryManager$TelemetryPreference",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.config.TelemetryManager$TelemetryEvent",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
 
   {
     "name": "dev.springforge.engine.model.EntityDescriptor",
