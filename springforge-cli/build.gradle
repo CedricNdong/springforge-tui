@@ -4,6 +4,10 @@ plugins {
 }
 
 dependencies {
+    implementation project(':springforge-engine')
+    implementation project(':springforge-config')
+    implementation project(':springforge-tui-screens')
+
     implementation platform("dev.tamboui:tamboui-bom:${tamboUiVersion}")
     implementation 'dev.tamboui:tamboui-toolkit'
     implementation 'dev.tamboui:tamboui-picocli'
@@ -14,6 +18,9 @@ dependencies {
 
     implementation 'com.github.javaparser:javaparser-core:3.26.4'
 
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.2'
+
     implementation 'org.slf4j:slf4j-api:2.0.16'
     runtimeOnly 'org.slf4j:slf4j-simple:2.0.16'
 
@@ -23,14 +30,14 @@ dependencies {
 }
 
 application {
-    mainClass = 'dev.springforge.cli.SpikeCommand'
+    mainClass = 'dev.springforge.cli.MainCommand'
 }
 
 graalvmNative {
     binaries {
         main {
             imageName = 'springforge'
-            mainClass = 'dev.springforge.cli.SpikeCommand'
+            mainClass = 'dev.springforge.cli.MainCommand'
             buildArgs.addAll(
                 '--no-fallback',
                 '-H:+ReportExceptionStackTraces'
