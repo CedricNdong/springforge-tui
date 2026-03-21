@@ -4,14 +4,32 @@ import {{config.dtoPackage}}.{{entity.name}}RequestDto;
 import {{config.dtoPackage}}.{{entity.name}}ResponseDto;
 import {{entity.package}}.{{entity.name}};
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface {{entity.name}}Mapper {
 
+{{#entity.fields}}
+{{#mapperIgnore}}
+    @Mapping(target = "{{dtoFieldName}}", ignore = true)
+{{/mapperIgnore}}
+{{/entity.fields}}
     {{entity.name}}ResponseDto toResponseDto({{entity.name}} entity);
 
+{{#entity.nonIdFields}}
+{{#mapperIgnore}}
+    @Mapping(target = "{{name}}", ignore = true)
+{{/mapperIgnore}}
+{{/entity.nonIdFields}}
+    @Mapping(target = "id", ignore = true)
     {{entity.name}} toEntity({{entity.name}}RequestDto dto);
 
+{{#entity.nonIdFields}}
+{{#mapperIgnore}}
+    @Mapping(target = "{{name}}", ignore = true)
+{{/mapperIgnore}}
+{{/entity.nonIdFields}}
+    @Mapping(target = "id", ignore = true)
     void updateEntityFromDto({{entity.name}}RequestDto dto, @MappingTarget {{entity.name}} entity);
 }

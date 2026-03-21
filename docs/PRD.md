@@ -559,6 +559,7 @@ springforge:
 | **M3 — TUI (TamboUI)** | 2–3 weeks | All 6 screens functional, navigation complete, preview renders correctly |
 | **M4 — CLI + Config** | 1 week | All flags work including `--all`, `springforge.yml` parsed, dry-run verified |
 | **M5 — Native + Release** | 1–2 weeks | Native binary < 100ms, published to GitHub Packages + JBang, GitHub Release with native binaries |
+| **M6 — Integration Tests** | 1 week | E2E pipeline tests (scan → parse → generate → write → compile), CRUD tests with Testcontainers PostgreSQL, edge-case coverage (Lombok, SB2, circular refs, ModelMapper) |
 
 ### 12.2 Definition of Done (per feature)
 
