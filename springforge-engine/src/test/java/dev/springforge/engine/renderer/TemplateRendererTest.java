@@ -179,7 +179,7 @@ class TemplateRendererTest {
     class MapperTemplateTest {
 
         @Test
-        @DisplayName("should render MapStruct mapper interface")
+        @DisplayName("should render MapStruct mapper interface with all CRUD methods")
         void shouldRenderMapstructMapper() {
             GenerationConfig cfg = config(EnumSet.of(Layer.MAPPER));
             List<GeneratedFile> files = renderer.renderAll(cfg);
@@ -188,10 +188,14 @@ class TemplateRendererTest {
             assertThat(content).contains("@Mapper(componentModel = \"spring\")");
             assertThat(content).contains("public interface UserMapper");
             assertThat(content).contains("UserResponseDto toResponseDto(User entity)");
+            assertThat(content).contains("User toEntity(UserRequestDto dto)");
+            assertThat(content).contains("void updateEntityFromDto(UserRequestDto dto, @MappingTarget User entity)");
+            assertThat(content).contains("import org.mapstruct.Mapper;");
+            assertThat(content).contains("import org.mapstruct.MappingTarget;");
         }
 
         @Test
-        @DisplayName("should render ModelMapper config when configured")
+        @DisplayName("should render ModelMapper config with all CRUD methods")
         void shouldRenderModelMapper() {
             GenerationConfig cfg = new GenerationConfig(
                 List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
@@ -205,6 +209,54 @@ class TemplateRendererTest {
             assertThat(content).contains("@Component");
             assertThat(content).contains("public class UserMapper");
             assertThat(content).contains("ModelMapper modelMapper");
+            assertThat(content).contains("UserResponseDto toResponseDto(User entity)");
+            assertThat(content).contains("User toEntity(UserRequestDto dto)");
+            assertThat(content).contains("void updateEntityFromDto(UserRequestDto dto, User entity)");
+        }
+
+        @Test
+        @DisplayName("should produce independent templates between MapStruct and ModelMapper")
+        void shouldProduceIndependentTemplates() {
+            GenerationConfig mapstructCfg = config(EnumSet.of(Layer.MAPPER));
+            GenerationConfig modelMapperCfg = new GenerationConfig(
+                List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MODEL_MAPPER, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+
+            String mapstructContent = renderer.renderAll(mapstructCfg).get(0).content();
+            String modelMapperContent = renderer.renderAll(modelMapperCfg).get(0).content();
+
+            assertThat(mapstructContent).contains("interface");
+            assertThat(mapstructContent).doesNotContain("ModelMapper");
+            assertThat(modelMapperContent).contains("class");
+            assertThat(modelMapperContent).doesNotContain("@Mapper(componentModel");
+        }
+
+        @Test
+        @DisplayName("should switch mapper via config mapperLib field")
+        void shouldSwitchMapperViaConfig() {
+            GenerationConfig mapstructCfg = new GenerationConfig(
+                List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            GenerationConfig modelMapperCfg = new GenerationConfig(
+                List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MODEL_MAPPER, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+
+            String mapstructContent = renderer.renderAll(mapstructCfg).get(0).content();
+            String modelMapperContent = renderer.renderAll(modelMapperCfg).get(0).content();
+
+            assertThat(mapstructContent).contains("@Mapper(componentModel = \"spring\")");
+            assertThat(modelMapperContent).contains("@Component");
+            assertThat(modelMapperContent).doesNotContain("new ModelMapper()");
+            assertThat(modelMapperContent).contains("ModelMapper modelMapper");
         }
     }
 
