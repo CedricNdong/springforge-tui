@@ -179,7 +179,7 @@ class TemplateRendererTest {
     class MapperTemplateTest {
 
         @Test
-        @DisplayName("should render MapStruct mapper interface")
+        @DisplayName("should render MapStruct mapper interface with all CRUD methods")
         void shouldRenderMapstructMapper() {
             GenerationConfig cfg = config(EnumSet.of(Layer.MAPPER));
             List<GeneratedFile> files = renderer.renderAll(cfg);
@@ -188,10 +188,14 @@ class TemplateRendererTest {
             assertThat(content).contains("@Mapper(componentModel = \"spring\")");
             assertThat(content).contains("public interface UserMapper");
             assertThat(content).contains("UserResponseDto toResponseDto(User entity)");
+            assertThat(content).contains("User toEntity(UserRequestDto dto)");
+            assertThat(content).contains("void updateEntityFromDto(UserRequestDto dto, @MappingTarget User entity)");
+            assertThat(content).contains("import org.mapstruct.Mapper;");
+            assertThat(content).contains("import org.mapstruct.MappingTarget;");
         }
 
         @Test
-        @DisplayName("should render ModelMapper config when configured")
+        @DisplayName("should render ModelMapper config with all CRUD methods")
         void shouldRenderModelMapper() {
             GenerationConfig cfg = new GenerationConfig(
                 List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
@@ -205,6 +209,54 @@ class TemplateRendererTest {
             assertThat(content).contains("@Component");
             assertThat(content).contains("public class UserMapper");
             assertThat(content).contains("ModelMapper modelMapper");
+            assertThat(content).contains("UserResponseDto toResponseDto(User entity)");
+            assertThat(content).contains("User toEntity(UserRequestDto dto)");
+            assertThat(content).contains("void updateEntityFromDto(UserRequestDto dto, User entity)");
+        }
+
+        @Test
+        @DisplayName("should produce independent templates between MapStruct and ModelMapper")
+        void shouldProduceIndependentTemplates() {
+            GenerationConfig mapstructCfg = config(EnumSet.of(Layer.MAPPER));
+            GenerationConfig modelMapperCfg = new GenerationConfig(
+                List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MODEL_MAPPER, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+
+            String mapstructContent = renderer.renderAll(mapstructCfg).get(0).content();
+            String modelMapperContent = renderer.renderAll(modelMapperCfg).get(0).content();
+
+            assertThat(mapstructContent).contains("interface");
+            assertThat(mapstructContent).doesNotContain("ModelMapper");
+            assertThat(modelMapperContent).contains("class");
+            assertThat(modelMapperContent).doesNotContain("@Mapper(componentModel");
+        }
+
+        @Test
+        @DisplayName("should switch mapper via config mapperLib field")
+        void shouldSwitchMapperViaConfig() {
+            GenerationConfig mapstructCfg = new GenerationConfig(
+                List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            GenerationConfig modelMapperCfg = new GenerationConfig(
+                List.of(userEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MODEL_MAPPER, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+
+            String mapstructContent = renderer.renderAll(mapstructCfg).get(0).content();
+            String modelMapperContent = renderer.renderAll(modelMapperCfg).get(0).content();
+
+            assertThat(mapstructContent).contains("@Mapper(componentModel = \"spring\")");
+            assertThat(modelMapperContent).contains("@Component");
+            assertThat(modelMapperContent).doesNotContain("new ModelMapper()");
+            assertThat(modelMapperContent).contains("ModelMapper modelMapper");
         }
     }
 
@@ -212,20 +264,63 @@ class TemplateRendererTest {
     @DisplayName("Spring Boot 2.x support")
     class SpringBoot2Test {
 
-        @Test
-        @DisplayName("should use javax namespace for Spring Boot 2.x")
-        void shouldUseJavaxNamespace() {
-            GenerationConfig cfg = new GenerationConfig(
-                List.of(userEntity), EnumSet.of(Layer.CONTROLLER), SpringVersion.V2,
+        private GenerationConfig springBoot2Config(EnumSet<Layer> layers) {
+            return new GenerationConfig(
+                List.of(userEntity), layers, SpringVersion.V2,
                 MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
                 Path.of("target/generated"), "com.example",
                 false, false
             );
+        }
+
+        @Test
+        @DisplayName("should use javax namespace in Controller for Spring Boot 2.x")
+        void shouldUseJavaxInController() {
+            GenerationConfig cfg = springBoot2Config(EnumSet.of(Layer.CONTROLLER));
             List<GeneratedFile> files = renderer.renderAll(cfg);
 
             String content = files.get(0).content();
             assertThat(content).contains("javax.validation.Valid");
             assertThat(content).doesNotContain("jakarta");
+        }
+
+        @Test
+        @DisplayName("should use javax namespace in RequestDto for Spring Boot 2.x")
+        void shouldUseJavaxInRequestDto() {
+            GenerationConfig cfg = springBoot2Config(EnumSet.of(Layer.DTO_REQUEST));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            String content = files.get(0).content();
+            assertThat(content).contains("javax.validation.constraints.NotNull");
+            assertThat(content).doesNotContain("jakarta");
+        }
+
+        @Test
+        @DisplayName("should default to Spring Boot 3.x with jakarta namespace")
+        void shouldDefaultToJakartaNamespace() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.CONTROLLER));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            String content = files.get(0).content();
+            assertThat(content).contains("jakarta.validation.Valid");
+            assertThat(content).doesNotContain("javax");
+        }
+
+        @Test
+        @DisplayName("should pass smoke test for all Spring Boot 2.x layers")
+        void shouldPassSmokeTestForAllLayers() {
+            EnumSet<Layer> layers = EnumSet.of(
+                Layer.DTO_REQUEST, Layer.DTO_RESPONSE, Layer.MAPPER,
+                Layer.REPOSITORY, Layer.SERVICE, Layer.SERVICE_IMPL,
+                Layer.CONTROLLER
+            );
+            GenerationConfig cfg = springBoot2Config(layers);
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(7);
+            for (GeneratedFile file : files) {
+                assertThat(file.content()).isNotBlank();
+            }
         }
     }
 
@@ -289,6 +384,74 @@ class TemplateRendererTest {
             String content = files.get(0).content();
             assertThat(content).doesNotContain("@RequiredArgsConstructor");
             assertThat(content).contains("public ProductServiceImpl(");
+        }
+    }
+
+    @Nested
+    @DisplayName("Migration templates")
+    class MigrationTemplateTest {
+
+        @Test
+        @DisplayName("should render Liquibase changelog with createTable changeset")
+        void shouldRenderLiquibaseChangelog() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.LIQUIBASE));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(1);
+            String content = files.get(0).content();
+            assertThat(content).contains("<databaseChangeLog");
+            assertThat(content).contains("<changeSet id=\"create-user\" author=\"springforge\">");
+            assertThat(content).contains("<createTable tableName=\"user\">");
+            assertThat(content).contains("<column name=\"id\" type=\"BIGINT\"");
+            assertThat(content).contains("primaryKey=\"true\"");
+            assertThat(content).contains("<column name=\"username\" type=\"VARCHAR(255)\"");
+            assertThat(content).contains("<column name=\"email\" type=\"VARCHAR(255)\"");
+            assertThat(content).contains("unique=\"true\"");
+        }
+
+        @Test
+        @DisplayName("should render Flyway SQL migration with CREATE TABLE")
+        void shouldRenderFlywayMigration() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.FLYWAY));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(1);
+            String content = files.get(0).content();
+            assertThat(content).contains("CREATE TABLE user");
+            assertThat(content).contains("id BIGINT PRIMARY KEY");
+            assertThat(content).contains("username VARCHAR(255)");
+            assertThat(content).contains("email VARCHAR(255)");
+            assertThat(content).contains("UNIQUE");
+        }
+
+        @Test
+        @DisplayName("should generate migration scripts without applying them")
+        void shouldNotApplyMigrationScripts() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.LIQUIBASE));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(1);
+            assertThat(files.get(0).layer()).isEqualTo(Layer.LIQUIBASE);
+        }
+
+        @Test
+        @DisplayName("should resolve Liquibase output to db/changelog directory")
+        void shouldResolveLiquibaseOutputPath() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.LIQUIBASE));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files.get(0).outputPath().toString())
+                .contains("resources/db/changelog");
+        }
+
+        @Test
+        @DisplayName("should resolve Flyway output to db/migration directory")
+        void shouldResolveFlywayOutputPath() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.FLYWAY));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files.get(0).outputPath().toString())
+                .contains("resources/db/migration");
         }
     }
 

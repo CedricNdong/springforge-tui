@@ -1,0 +1,6 @@
+-- SpringForge: Flyway migration for {{entity.name}}
+CREATE TABLE {{entity.tableName}} (
+{{#entity.columns}}
+    {{columnName}} {{columnType}}{{#isPrimaryKey}} PRIMARY KEY{{/isPrimaryKey}}{{^isNullable}} NOT NULL{{/isNullable}}{{#isUnique}} UNIQUE{{/isUnique}}{{^isLast}},{{/isLast}}
+{{/entity.columns}}
+);

@@ -19,6 +19,14 @@ public final class FileNameResolver {
             case SERVICE_IMPL -> entityClassName + "ServiceImpl.java";
             case CONTROLLER -> entityClassName + "Controller.java";
             case FILE_UPLOAD -> entityClassName + "FileController.java";
+            case LIQUIBASE -> "changelog_create_"
+                + toSnakeCase(entityClassName) + ".xml";
+            case FLYWAY -> "V001__create_"
+                + toSnakeCase(entityClassName) + ".sql";
         };
+    }
+
+    private static String toSnakeCase(String className) {
+        return className.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
     }
 }
