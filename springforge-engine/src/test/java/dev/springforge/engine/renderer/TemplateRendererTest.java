@@ -264,20 +264,63 @@ class TemplateRendererTest {
     @DisplayName("Spring Boot 2.x support")
     class SpringBoot2Test {
 
-        @Test
-        @DisplayName("should use javax namespace for Spring Boot 2.x")
-        void shouldUseJavaxNamespace() {
-            GenerationConfig cfg = new GenerationConfig(
-                List.of(userEntity), EnumSet.of(Layer.CONTROLLER), SpringVersion.V2,
+        private GenerationConfig springBoot2Config(EnumSet<Layer> layers) {
+            return new GenerationConfig(
+                List.of(userEntity), layers, SpringVersion.V2,
                 MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
                 Path.of("target/generated"), "com.example",
                 false, false
             );
+        }
+
+        @Test
+        @DisplayName("should use javax namespace in Controller for Spring Boot 2.x")
+        void shouldUseJavaxInController() {
+            GenerationConfig cfg = springBoot2Config(EnumSet.of(Layer.CONTROLLER));
             List<GeneratedFile> files = renderer.renderAll(cfg);
 
             String content = files.get(0).content();
             assertThat(content).contains("javax.validation.Valid");
             assertThat(content).doesNotContain("jakarta");
+        }
+
+        @Test
+        @DisplayName("should use javax namespace in RequestDto for Spring Boot 2.x")
+        void shouldUseJavaxInRequestDto() {
+            GenerationConfig cfg = springBoot2Config(EnumSet.of(Layer.DTO_REQUEST));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            String content = files.get(0).content();
+            assertThat(content).contains("javax.validation.constraints.NotNull");
+            assertThat(content).doesNotContain("jakarta");
+        }
+
+        @Test
+        @DisplayName("should default to Spring Boot 3.x with jakarta namespace")
+        void shouldDefaultToJakartaNamespace() {
+            GenerationConfig cfg = config(EnumSet.of(Layer.CONTROLLER));
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            String content = files.get(0).content();
+            assertThat(content).contains("jakarta.validation.Valid");
+            assertThat(content).doesNotContain("javax");
+        }
+
+        @Test
+        @DisplayName("should pass smoke test for all Spring Boot 2.x layers")
+        void shouldPassSmokeTestForAllLayers() {
+            EnumSet<Layer> layers = EnumSet.of(
+                Layer.DTO_REQUEST, Layer.DTO_RESPONSE, Layer.MAPPER,
+                Layer.REPOSITORY, Layer.SERVICE, Layer.SERVICE_IMPL,
+                Layer.CONTROLLER
+            );
+            GenerationConfig cfg = springBoot2Config(layers);
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+
+            assertThat(files).hasSize(7);
+            for (GeneratedFile file : files) {
+                assertThat(file.content()).isNotBlank();
+            }
         }
     }
 
