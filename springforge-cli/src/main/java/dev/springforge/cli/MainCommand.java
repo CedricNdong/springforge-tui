@@ -12,7 +12,7 @@ import picocli.CommandLine.Option;
     name = "springforge",
     description = "SpringForge — Generate Spring Boot API layers from @Entity classes",
     mixinStandardHelpOptions = true,
-    version = "1.0.0-SNAPSHOT",
+    versionProvider = ManifestVersionProvider.class,
     subcommands = {
         GenerateCommand.class,
         InitCommand.class,

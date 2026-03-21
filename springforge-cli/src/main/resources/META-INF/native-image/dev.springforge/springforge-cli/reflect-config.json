@@ -6,6 +6,11 @@
     "allDeclaredFields": true
   },
   {
+    "name": "dev.springforge.cli.ManifestVersionProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
     "name": "dev.springforge.cli.GenerateCommand",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
