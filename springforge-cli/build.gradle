@@ -40,7 +40,9 @@ graalvmNative {
             mainClass = 'dev.springforge.cli.MainCommand'
             buildArgs.addAll(
                 '--no-fallback',
-                '-H:+ReportExceptionStackTraces'
+                '-H:+ReportExceptionStackTraces',
+                '--initialize-at-build-time=org.slf4j',
+                '--initialize-at-build-time=com.github.javaparser'
             )
             javaLauncher = javaToolchains.launcherFor {
                 languageVersion = JavaLanguageVersion.of(21)
