@@ -1,6 +1,8 @@
 plugins {
     id 'java'
     id 'org.graalvm.buildtools.native' version '0.10.6' apply false
+    id 'com.github.spotbugs' version '6.1.7' apply false
+    id 'checkstyle'
 }
 
 // TamboUI version pinned per CLAUDE.md rule #2 and PRD A3.
@@ -9,6 +11,8 @@ ext.tamboUiVersion = '0.2.0-SNAPSHOT'
 
 subprojects {
     apply plugin: 'java'
+    apply plugin: 'com.github.spotbugs'
+    apply plugin: 'checkstyle'
 
     group = 'dev.springforge'
     version = '0.1.0-SNAPSHOT'
@@ -37,5 +41,27 @@ subprojects {
 
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
+        reports {
+            junitXml.required = true
+        }
+    }
+
+    spotbugs {
+        effort = com.github.spotbugs.snom.Effort.valueOf('MAX')
+        reportLevel = com.github.spotbugs.snom.Confidence.valueOf('MEDIUM')
+        excludeFilter = rootProject.file('config/spotbugs/exclude.xml')
+    }
+
+    tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+        reports {
+            html.required = true
+            xml.required = true
+        }
+    }
+
+    checkstyle {
+        toolVersion = '10.21.4'
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+        maxWarnings = 0
     }
 }

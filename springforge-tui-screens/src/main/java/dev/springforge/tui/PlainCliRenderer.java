@@ -8,7 +8,6 @@ import dev.springforge.engine.model.FieldDescriptor;
 import dev.springforge.engine.model.FileGenerationResult;
 import dev.springforge.engine.model.GeneratedFile;
 import dev.springforge.engine.model.GenerationReport;
-import dev.springforge.engine.model.GenerationStatus;
 import dev.springforge.tui.state.EntitySelectionState;
 import dev.springforge.tui.state.ErrorState;
 import dev.springforge.tui.state.GenerationProgressState;

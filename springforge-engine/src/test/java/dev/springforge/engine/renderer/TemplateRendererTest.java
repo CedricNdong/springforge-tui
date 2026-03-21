@@ -1,6 +1,5 @@
 package dev.springforge.engine.renderer;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;

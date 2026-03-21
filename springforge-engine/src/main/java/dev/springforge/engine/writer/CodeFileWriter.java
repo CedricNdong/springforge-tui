@@ -42,6 +42,7 @@ public class CodeFileWriter {
                 case CREATED -> created++;
                 case SKIPPED -> skipped++;
                 case ERROR -> errors++;
+                default -> { }
             }
         }
 
