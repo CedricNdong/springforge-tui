@@ -33,6 +33,7 @@ Reference docs:
 | Build Tool | Gradle (Groovy DSL)  | 8.x |
 | Native Build | GraalVM native-image | 25+ |
 | Testing | JUnit 5 + AssertJ    | Latest |
+| Integration Testing | Testcontainers       | 1.20.x |
 
 ---
 
@@ -45,7 +46,8 @@ springforge-tui/
 ├── springforge-engine/       ← Core generation logic (scanner, parser, renderer, writer)
 ├── springforge-templates/    ← Mustache templates (built-in)
 ├── springforge-config/       ← springforge.yml parsing + config resolution
-└── springforge-native/       ← GraalVM native-image config (reflect-config.json, etc.)
+├── springforge-native/       ← GraalVM native-image config (reflect-config.json, etc.)
+└── springforge-integration-tests/ ← E2E tests with Testcontainers PostgreSQL
 ```
 
 See `docs/TECHNICAL_SPEC.md` Section 3 for full module structure with package details.

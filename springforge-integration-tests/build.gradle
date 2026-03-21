@@ -1,0 +1,79 @@
+plugins {
+    id 'java'
+}
+
+// Disable spotbugs and checkstyle for this module (contains generated code)
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach { enabled = false }
+tasks.withType(Checkstyle).configureEach { enabled = false }
+
+configurations {
+    springforgeRuntime
+}
+
+dependencies {
+    // SpringForge engine (for the generateCode task)
+    springforgeRuntime project(':springforge-cli')
+
+    // Spring Boot (BOM only — no boot plugin needed)
+    implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.1')
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // MapStruct (generated mappers)
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+
+    // Test — Testcontainers + Spring Boot Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:postgresql:1.20.4'
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+    testImplementation 'org.assertj:assertj-core:3.27.3'
+
+    // SpringForge engine API (for compilation verification tests)
+    testImplementation project(':springforge-engine')
+    testImplementation project(':springforge-config')
+    testImplementation project(':springforge-cli')
+}
+
+// ---------------------------------------------------------------------------
+// Code generation: run SpringForge CLI to generate layers from reference
+// entities before compileJava. This proves the full pipeline works.
+// ---------------------------------------------------------------------------
+def generatedDir = layout.buildDirectory.dir('generated/sources/springforge')
+
+sourceSets.main.java.srcDir(generatedDir)
+
+tasks.register('generateSpringForgeCode', JavaExec) {
+    classpath = configurations.springforgeRuntime
+    mainClass = 'dev.springforge.cli.MainCommand'
+    args = [
+        'generate',
+        '--dir', "${projectDir}/src/main/java/com/example/model",
+        '--all', '--overwrite', '--no-tui',
+        '--output', generatedDir.get().asFile.absolutePath
+    ]
+}
+
+tasks.named('compileJava') {
+    dependsOn 'generateSpringForgeCode'
+    options.compilerArgs.add('-parameters')
+}
+
+// ---------------------------------------------------------------------------
+// Test tasks: disable default 'test' (runs with ./gradlew test at root).
+// Integration tests run only via explicit ./gradlew integrationTest.
+// ---------------------------------------------------------------------------
+tasks.named('test') {
+    enabled = false
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs E2E integration tests with Testcontainers (PostgreSQL)'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter tasks.named('test')
+}

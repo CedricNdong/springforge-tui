@@ -220,11 +220,20 @@ springforge-tui/                         ← root Gradle project
 │       ├── migration/
 │       └── openapi/
 │
-└── springforge-native/                  ← GraalVM configuration
-    └── src/main/resources/META-INF/native-image/
-        ├── reflect-config.json
-        ├── resource-config.json
-        └── proxy-config.json
+├── springforge-native/                  ← GraalVM configuration
+│   └── src/main/resources/META-INF/native-image/
+│       ├── reflect-config.json
+│       ├── resource-config.json
+│       └── proxy-config.json
+│
+└── springforge-integration-tests/       ← E2E integration tests (Testcontainers)
+    ├── src/main/java/.../model/         ← Reference entities (User, Product, Order)
+    ├── src/main/java/.../ReferenceApplication.java
+    ├── src/main/resources/application.yml
+    └── src/test/java/.../it/
+        ├── GeneratedCodeCompilationTest.java  ← Pipeline: scan → parse → generate → write
+        ├── CrudIntegrationTest.java           ← Full CRUD with Testcontainers PostgreSQL
+        └── EdgeCaseIntegrationTest.java       ← Lombok, SB2, circular refs, ModelMapper
 ```
 
 ---
