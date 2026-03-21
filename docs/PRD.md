@@ -84,7 +84,7 @@ No terminal-native tool currently combines full Spring Boot layer generation wit
 | G9 | Provide a fully interactive TUI via TamboUI |
 | G10 | Provide a non-interactive CLI mode for pipeline use |
 | G11 | Compile to a GraalVM native binary *(contingent on Week 1 spike — see Section 3)* |
-| G12 | Distribute via JBang and Maven Central |
+| G12 | Distribute via JBang and GitHub Packages / GitHub Releases |
 
 ### Non-Goals (v1.0)
 
@@ -521,7 +521,7 @@ springforge:
 | NF-08 | Quality | Generated code compiles with no errors in > 90% of standard Spring Boot 3 projects |
 | NF-09 | Quality | Test matrix (see Section 12.3) covered by integration tests |
 | NF-10 | Maintainability | Adding a new template requires no changes to core engine code |
-| NF-11 | Distribution | Available via `jbang` (zero install) and Maven Central |
+| NF-11 | Distribution | Available via `jbang` (zero install) and GitHub Packages |
 | NF-12 | Observability | `--verbose` logs each generation step with timing |
 
 ---
@@ -558,7 +558,7 @@ springforge:
 | **M2 — Full Layer Stack** | 2–3 weeks | All 10 generation types work, templates validated, OpenAPI output correct |
 | **M3 — TUI (TamboUI)** | 2–3 weeks | All 6 screens functional, navigation complete, preview renders correctly |
 | **M4 — CLI + Config** | 1 week | All flags work including `--all`, `springforge.yml` parsed, dry-run verified |
-| **M5 — Native + Release** | 1–2 weeks | Native binary < 100ms, published to Maven Central + JBang |
+| **M5 — Native + Release** | 1–2 weeks | Native binary < 100ms, published to GitHub Packages + JBang, GitHub Release with native binaries |
 
 ### 12.2 Definition of Done (per feature)
 
@@ -589,7 +589,7 @@ Not all configuration combinations can be fully integration-tested in v1. The fo
 | Metric | Target | Timeline | Measurement Method |
 |--------|--------|----------|--------------------|
 | GitHub Stars | > 500 | 3 months | GitHub API |
-| JBang installs | > 1,000 | 3 months | JBang telemetry |
+| JBang installs | > 1,000 | 3 months | GitHub Releases download count |
 | Weekly Active Users | > 200 | 3 months | Anonymous usage ping (opt-in) |
 | **Task completion rate** | > 80% | 3 months | % of sessions that reach S6 Summary without error |
 | **Generated code compiles** | > 90% | Ongoing | CI test matrix (Section 12.3) across all integration-tested combinations |

@@ -2,6 +2,9 @@
   "resources": {
     "includes": [
       {
+        "pattern": "templates/.*\\.mustache$"
+      },
+      {
         "pattern": ".*\\.java$"
       },
       {
@@ -12,6 +15,15 @@
       },
       {
         "pattern": "META-INF/services/.*"
+      },
+      {
+        "pattern": "springforge\\.yml$"
+      },
+      {
+        "pattern": "org/slf4j/impl/.*"
+      },
+      {
+        "pattern": "simplelogger\\.properties$"
       }
     ]
   }

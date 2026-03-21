@@ -1,0 +1,12 @@
+{
+  "catalogs": {},
+  "aliases": {
+    "springforge": {
+      "script-ref": "dev.springforge:springforge-tui:RELEASE",
+      "description": "SpringForge TUI — Generate Spring Boot API stacks from @Entity classes",
+      "repositories": [
+        "https://maven.pkg.github.com/CedricNdong/springforge-tui"
+      ]
+    }
+  }
+}

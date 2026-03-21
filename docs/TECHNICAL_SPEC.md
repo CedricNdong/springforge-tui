@@ -841,7 +841,7 @@ springforge generate
 
 `jbang-catalog.json` published at GitHub repo root.
 
-### 10.2 Maven Central
+### 10.2 GitHub Packages
 
 ```xml
 <dependency>
@@ -851,17 +851,38 @@ springforge generate
 </dependency>
 ```
 
-Fat JAR published via Gradle Shadow plugin. Signed with GPG key.
+Fat JAR published to GitHub Packages via Gradle `maven-publish` plugin.
+Requires `GITHUB_TOKEN` with `read:packages` scope to consume.
+
+```gradle
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/CedricNdong/springforge-tui")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+}
+```
 
 ### 10.3 Native Binaries
 
 Published as GitHub Release assets. Install script:
 
 ```bash
-curl -L https://github.com/springforge-tui/springforge/releases/latest/download/install.sh | bash
+curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/install.sh | bash
 ```
 
 Detects OS + architecture, downloads correct binary, places in `/usr/local/bin/springforge`.
+
+**GitHub Actions release workflow** builds 3 binaries on tag push (`v*`):
+- `springforge-linux-x86_64`
+- `springforge-macos-aarch64`
+- `springforge-macos-x86_64`
 
 ### 10.4 Versioning
 
