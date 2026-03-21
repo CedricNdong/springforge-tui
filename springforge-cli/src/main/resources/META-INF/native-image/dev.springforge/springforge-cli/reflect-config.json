@@ -42,6 +42,11 @@
     "allDeclaredFields": true
   },
   {
+    "name": "dev.springforge.cli.ExitCodes",
+    "allDeclaredFields": true
+  },
+
+  {
     "name": "dev.springforge.config.SpringForgeConfig",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
@@ -71,6 +76,104 @@
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
+  {
+    "name": "dev.springforge.config.TelemetryManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.config.TelemetryManager$TelemetryPreference",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.config.TelemetryManager$TelemetryEvent",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+
+  {
+    "name": "dev.springforge.engine.model.EntityDescriptor",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.FieldDescriptor",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.GenerationConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.GeneratedFile",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.GenerationReport",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.FileGenerationResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.Layer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.RelationType",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.SpringNamespace",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.SpringVersion",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.ConflictStrategy",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.MapperLib",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "dev.springforge.engine.model.GenerationStatus",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+
   {
     "name": "com.github.javaparser.ast.CompilationUnit",
     "allDeclaredConstructors": true,
@@ -152,5 +255,61 @@
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
+  },
+
+  {
+    "name": "com.fasterxml.jackson.databind.ObjectMapper",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.fasterxml.jackson.databind.SerializationFeature",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.fasterxml.jackson.databind.DeserializationFeature",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.fasterxml.jackson.dataformat.yaml.YAMLFactory",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.fasterxml.jackson.dataformat.yaml.YAMLGenerator",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.fasterxml.jackson.dataformat.yaml.YAMLParser",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+
+  {
+    "name": "org.yaml.snakeyaml.Yaml",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.yaml.snakeyaml.constructor.SafeConstructor",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+
+  {
+    "name": "org.slf4j.simple.SimpleServiceProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.slf4j.simple.SimpleLogger",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.slf4j.LoggerFactory",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
   }
 ]
