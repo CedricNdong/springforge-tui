@@ -30,6 +30,7 @@ import dev.tamboui.terminal.Frame;
 import dev.tamboui.tui.TuiRunner;
 import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
+import dev.tamboui.tui.event.TickEvent;
 
 /**
  * Full interactive TUI implementation using TamboUI.
@@ -67,6 +68,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
 
     // Filter mode for entity selection: only accept typing when active
     private volatile boolean filterMode;
+
+    // Splash screen: wait for any key before proceeding
+    private volatile boolean waitingForSplashKey;
 
     // Latch to block show*() callers until the screen is completed
     private final AtomicReference<CountDownLatch> screenLatch = new AtomicReference<>();
@@ -118,6 +122,15 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
         this.currentScreen = ScreenType.SPLASH;
     }
 
+    /**
+     * Blocks on the splash screen until the user presses any key.
+     * Used after scan completes to let the user see the logo and results.
+     */
+    public void waitForKeyOnSplash() {
+        this.waitingForSplashKey = true;
+        blockOnScreen(ScreenType.SPLASH);
+    }
+
     @Override
     public void showProgress(GenerationProgressState state) {
         this.progressState = state;
@@ -166,6 +179,12 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     // ── Event handling ───────────────────────────────────────────────
 
     private boolean handleEvent(Event event, TuiRunner runner) {
+        // Tick events → redraw during splash/progress so progress bar updates
+        if (event instanceof TickEvent) {
+            return currentScreen == ScreenType.SPLASH
+                || currentScreen == ScreenType.PROGRESS;
+        }
+
         if (!(event instanceof KeyEvent ke)) {
             return false;
         }
@@ -177,6 +196,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
         }
 
         return switch (currentScreen) {
+            case SPLASH -> handleSplashEvent(ke);
             case ENTITY_SELECTION -> handleEntitySelectionEvent(ke);
             case LAYER_CONFIG -> handleLayerConfigEvent(ke);
             case PREVIEW -> handlePreviewEvent(ke);
@@ -184,6 +204,18 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             case ERROR -> handleErrorEvent(ke);
             default -> false;
         };
+    }
+
+    // ── Splash (S1) ────────────────────────────────────────────────────
+    // "Press any key to continue..." after scan completes
+
+    private boolean handleSplashEvent(KeyEvent ke) {
+        if (waitingForSplashKey) {
+            waitingForSplashKey = false;
+            completeScreen();
+            return true;
+        }
+        return false;
     }
 
     // ── Entity Selection (S2) ────────────────────────────────────────

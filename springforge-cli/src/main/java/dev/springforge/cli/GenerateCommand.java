@@ -231,20 +231,28 @@ public class GenerateCommand implements Callable<Integer> {
     Integer runInteractiveTui()
             throws ConfigLoader.ConfigLoadException, IOException {
         SpringForgeConfig yamlConfig = loadConfig();
-        List<EntityDescriptor> allEntities = discoverEntities();
-
-        if (allEntities.isEmpty()) {
-            System.err.println("Error: No @Entity classes found");
-            return ExitCodes.ENTITY_PARSE_ERROR;
-        }
 
         // Suppress SLF4J output during TUI mode to avoid corrupting the display
         suppressLogging();
 
         try (TamboUiRenderer tui = new TamboUiRenderer()) {
-            // Show splash briefly
+            // S1: Show splash while scanning entities in background
+            tui.showSplash(SplashState.initial());
+
+            List<EntityDescriptor> allEntities = scanWithSplash(tui);
+
+            if (allEntities.isEmpty()) {
+                tui.showSplash(SplashState.initial()
+                    .withError("No @Entity classes found. "
+                        + "Press any key to exit."));
+                tui.waitForKeyOnSplash();
+                return ExitCodes.ENTITY_PARSE_ERROR;
+            }
+
+            // Show completed splash and wait for user to press any key
             tui.showSplash(SplashState.initial()
                 .withComplete(allEntities.size()));
+            tui.waitForKeyOnSplash();
 
             // Flow state
             AtomicReference<List<EntityDescriptor>> selectedEntities = new AtomicReference<>();
@@ -304,6 +312,54 @@ public class GenerateCommand implements Callable<Integer> {
         if (originalStderr != null) {
             System.setErr(originalStderr);
         }
+    }
+
+    /**
+     * Scans for entity files while updating the splash progress bar.
+     * Discovers files first, then parses them one by one with progress updates.
+     */
+    private List<EntityDescriptor> scanWithSplash(TamboUiRenderer tui)
+            throws IOException {
+        // Discover entity file paths
+        List<Path> filesToParse = new ArrayList<>();
+
+        if (entityFile != null) {
+            filesToParse.add(entityFile);
+        } else if (entityFiles != null && !entityFiles.isEmpty()) {
+            filesToParse.addAll(entityFiles);
+        } else if (scanDir != null) {
+            EntityScanner scanner = new EntityScanner();
+            filesToParse.addAll(scanner.scanForEntityFiles(scanDir));
+        } else {
+            EntityScanner scanner = new EntityScanner();
+            Path srcDir = Path.of(System.getProperty("user.dir"), "src/main/java");
+            filesToParse.addAll(scanner.scanForEntityFiles(srcDir));
+        }
+
+        discoveredEntityFiles = List.copyOf(filesToParse);
+
+        // Parse each file with splash progress updates
+        JavaAstEntityParser parser = new JavaAstEntityParser();
+        List<EntityDescriptor> entities = new ArrayList<>();
+        int total = filesToParse.size();
+
+        for (int i = 0; i < total; i++) {
+            Path file = filesToParse.get(i);
+            tui.showSplash(new SplashState(
+                total, i, file.getFileName().toString(), false, null));
+
+            try {
+                entities.add(parser.parse(file));
+            } catch (Exception e) {
+                // skip unparseable files
+            }
+        }
+
+        if (entities.size() > 1) {
+            entities = parser.resolveCircularRefs(entities);
+        }
+
+        return entities;
     }
 
     private TuiFlowStep runEntitySelection(TamboUiRenderer tui,
