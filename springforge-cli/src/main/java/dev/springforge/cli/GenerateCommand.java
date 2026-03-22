@@ -291,13 +291,19 @@ public class GenerateCommand implements Callable<Integer> {
     /**
      * Suppress SLF4J Simple logger output during TUI mode.
      * SLF4J Simple writes to stderr which corrupts the TamboUI alt-screen.
+     * We redirect stderr to a no-op stream while the TUI is active.
      */
+    private java.io.PrintStream originalStderr;
+
     private void suppressLogging() {
-        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "off");
+        originalStderr = System.err;
+        System.setErr(new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));
     }
 
     private void restoreLogging() {
-        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "info");
+        if (originalStderr != null) {
+            System.setErr(originalStderr);
+        }
     }
 
     private TuiFlowStep runEntitySelection(TamboUiRenderer tui,

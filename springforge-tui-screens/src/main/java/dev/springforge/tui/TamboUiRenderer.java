@@ -187,6 +187,8 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Entity Selection (S2) ────────────────────────────────────────
+    // Footer: [Tab] Layer Config  [Ctrl+G] Generate  [?] Help  [q] Quit
+    // Help:   ↑/↓ Navigate  Space Toggle  A Select all  N Deselect  / Filter
 
     private boolean handleEntitySelectionEvent(KeyEvent ke) {
         // In filter mode, typing goes to filter text
@@ -194,10 +196,32 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             return handleFilterInput(ke);
         }
 
-        // Escape → cancel
+        // [q] Quit
+        if (ke.isCharIgnoreCase('q')) {
+            entityCallbacks.onCancel();
+            completeScreen();
+            return true;
+        }
+        // Esc → cancel
         if (ke.isCancel()) {
             entityCallbacks.onCancel();
             completeScreen();
+            return true;
+        }
+        // [Tab] → next screen (Layer Config) — same as confirm
+        if (ke.isFocusNext()) {
+            if (entitySelectionState.hasSelection()) {
+                entityCallbacks.onConfirm(entitySelectionState.selectedEntities());
+                completeScreen();
+            }
+            return true;
+        }
+        // [Ctrl+G] → skip to generate (confirm directly)
+        if (ke.hasCtrl() && ke.isCharIgnoreCase('g')) {
+            if (entitySelectionState.hasSelection()) {
+                entityCallbacks.onConfirm(entitySelectionState.selectedEntities());
+                completeScreen();
+            }
             return true;
         }
         // Enter → confirm selection
@@ -208,7 +232,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             }
             return true;
         }
-        // Navigation
+        // ↑/↓ Navigation
         if (ke.isUp()) {
             entitySelectionState = entitySelectionState.moveFocusUp();
             return true;
@@ -222,20 +246,22 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             entitySelectionState = entitySelectionState.toggleSelected();
             return true;
         }
-        // Shortcuts
+        // [A] Select all
         if (ke.isCharIgnoreCase('a')) {
             entitySelectionState = entitySelectionState.selectAll();
             return true;
         }
+        // [N] Deselect all
         if (ke.isCharIgnoreCase('n')) {
             entitySelectionState = entitySelectionState.selectNone();
             return true;
         }
+        // [?] Toggle help
         if (ke.isChar('?')) {
             entitySelectionState = entitySelectionState.toggleHelp();
             return true;
         }
-        // / → enter filter mode
+        // [/] Enter filter mode
         if (ke.isChar('/')) {
             filterMode = true;
             entitySelectionState = entitySelectionState.withFilter("");
@@ -272,11 +298,24 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Layer Config (S3) ────────────────────────────────────────────
+    // Footer: [←] Back  [Tab] Preview  [Ctrl+G] Generate
 
     private boolean handleLayerConfigEvent(KeyEvent ke) {
-        // Escape → back to entity selection
-        if (ke.isCancel()) {
+        // [←] or Esc → back to entity selection
+        if (ke.isCancel() || ke.isLeft()) {
             layerCallbacks.onBack();
+            completeScreen();
+            return true;
+        }
+        // [Tab] → next screen (Preview)
+        if (ke.isFocusNext()) {
+            layerCallbacks.onConfirm(layerConfigState);
+            completeScreen();
+            return true;
+        }
+        // [Ctrl+G] → confirm (skip preview, go to generate)
+        if (ke.hasCtrl() && ke.isCharIgnoreCase('g')) {
+            layerCallbacks.onConfirm(layerConfigState);
             completeScreen();
             return true;
         }
@@ -286,7 +325,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             completeScreen();
             return true;
         }
-        // Navigation
+        // ↑/↓ Navigation
         if (ke.isUp()) {
             layerConfigState = layerConfigState.moveFocusUp();
             return true;
@@ -331,11 +370,18 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Preview (S4) ─────────────────────────────────────────────────
+    // Footer: [↑/↓] Select file  [PgUp/PgDn] Scroll  [←] Back  [Ctrl+G] Generate
 
     private boolean handlePreviewEvent(KeyEvent ke) {
-        // Escape → back to layer config
-        if (ke.isCancel()) {
+        // [←] or Esc → back to layer config
+        if (ke.isCancel() || ke.isLeft()) {
             previewCallbacks.onBack();
+            completeScreen();
+            return true;
+        }
+        // [Ctrl+G] → confirm and generate
+        if (ke.hasCtrl() && ke.isCharIgnoreCase('g')) {
+            previewCallbacks.onConfirm();
             completeScreen();
             return true;
         }
@@ -345,7 +391,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             completeScreen();
             return true;
         }
-        // Arrow Up/Down → select file
+        // ↑/↓ → select file in tree
         if (ke.isUp()) {
             previewState = previewState.selectPrevious();
             return true;
@@ -363,7 +409,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             previewState = previewState.scrollUp();
             return true;
         }
-        // Page Up/Down → scroll fast
+        // PgUp/PgDn → scroll fast
         if (ke.isPageDown()) {
             for (int i = 0; i < 10; i++) {
                 previewState = previewState.scrollDown();
@@ -380,10 +426,11 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Summary (S6) ─────────────────────────────────────────────────
+    // Footer: [q] Quit  [g] Generate more
 
     private boolean handleSummaryEvent(KeyEvent ke) {
-        // Any confirm/cancel/q exits the summary
-        if (ke.isConfirm() || ke.isCancel() || ke.isCharIgnoreCase('q')) {
+        // [q] or Esc or Enter → quit
+        if (ke.isCharIgnoreCase('q') || ke.isCancel() || ke.isConfirm()) {
             completeScreen();
             return true;
         }
@@ -391,6 +438,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Error (S8) ───────────────────────────────────────────────────
+    // Footer: [R] Retry  [S] Skip  [Q] Quit
 
     private boolean handleErrorEvent(KeyEvent ke) {
         if (ke.isCancel() || ke.isCharIgnoreCase('q')) {
