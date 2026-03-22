@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import dev.springforge.config.ConfigLoader;
 import dev.springforge.config.SpringForgeConfig;
@@ -23,7 +25,13 @@ import dev.springforge.engine.renderer.TemplateRenderer;
 import dev.springforge.engine.scanner.EntityScanner;
 import dev.springforge.engine.writer.CodeFileWriter;
 import dev.springforge.tui.PlainCliRenderer;
+import dev.springforge.tui.TamboUiRenderer;
 import dev.springforge.tui.TuiRenderer;
+import dev.springforge.tui.state.EntitySelectionState;
+import dev.springforge.tui.state.GenerationProgressState;
+import dev.springforge.tui.state.LayerConfigState;
+import dev.springforge.tui.state.PreviewState;
+import dev.springforge.tui.state.SplashState;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,40 +146,10 @@ public class GenerateCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            SpringForgeConfig yamlConfig = loadConfig();
-            GenerationConfig config = buildGenerationConfig(yamlConfig);
-
-            if (config.entities().isEmpty()) {
-                LOG.error("No @Entity classes found");
-                System.err.println("Error: No @Entity classes found");
-                return ExitCodes.ENTITY_PARSE_ERROR;
+            if (shouldUseTui()) {
+                return runInteractiveTui();
             }
-
-            if (config.verbose()) {
-                LOG.info("Generating {} layers for {} entities",
-                    config.layers().size(), config.entities().size());
-            }
-
-            TemplateRenderer renderer = new TemplateRenderer();
-            BatchGenerator batchGenerator = new BatchGenerator(renderer);
-            List<GeneratedFile> generatedFiles = batchGenerator.generateAll(config);
-
-            if (config.dryRun()) {
-                printDryRun(generatedFiles);
-                return ExitCodes.SUCCESS;
-            }
-
-            CodeFileWriter writer = new CodeFileWriter();
-            GenerationReport report = writer.writeAll(
-                generatedFiles, config.conflictStrategy(), config.outputBasePath());
-
-            TuiRenderer tuiRenderer = new PlainCliRenderer();
-            tuiRenderer.showSummary(report);
-
-            return report.errorFiles() > 0
-                ? ExitCodes.FILE_WRITE_ERROR
-                : ExitCodes.SUCCESS;
-
+            return runNonInteractive();
         } catch (ConfigLoader.ConfigLoadException e) {
             LOG.error("Configuration error: {}", e.getMessage());
             System.err.println("Error: " + e.getMessage());
@@ -185,6 +163,252 @@ public class GenerateCommand implements Callable<Integer> {
             System.err.println("Error: " + e.getMessage());
             return ExitCodes.GENERAL_ERROR;
         }
+    }
+
+    /**
+     * Determines whether to use the interactive TUI.
+     * TUI is used when: no --no-tui flag, not a dumb terminal,
+     * and no explicit layer flags are provided (user wants to choose interactively).
+     */
+    boolean shouldUseTui() {
+        boolean noTui = parent != null && parent.isNoTui();
+        if (noTui || PlainCliRenderer.isDumbTerminal()) {
+            return false;
+        }
+        // If user provided explicit layer flags, skip TUI
+        boolean hasLayerFlags = allLayers || dto || mapper || repository
+            || service || controller || migration || openapi || upload;
+        return !hasLayerFlags && !dryRun;
+    }
+
+    /**
+     * Non-interactive CLI flow: resolve everything from flags/config,
+     * generate, write, show summary.
+     */
+    Integer runNonInteractive()
+            throws ConfigLoader.ConfigLoadException, IOException {
+        SpringForgeConfig yamlConfig = loadConfig();
+        GenerationConfig config = buildGenerationConfig(yamlConfig);
+
+        if (config.entities().isEmpty()) {
+            LOG.error("No @Entity classes found");
+            System.err.println("Error: No @Entity classes found");
+            return ExitCodes.ENTITY_PARSE_ERROR;
+        }
+
+        if (config.verbose()) {
+            LOG.info("Generating {} layers for {} entities",
+                config.layers().size(), config.entities().size());
+        }
+
+        TemplateRenderer renderer = new TemplateRenderer();
+        BatchGenerator batchGenerator = new BatchGenerator(renderer);
+        List<GeneratedFile> generatedFiles = batchGenerator.generateAll(config);
+
+        if (config.dryRun()) {
+            printDryRun(generatedFiles);
+            return ExitCodes.SUCCESS;
+        }
+
+        CodeFileWriter writer = new CodeFileWriter();
+        GenerationReport report = writer.writeAll(
+            generatedFiles, config.conflictStrategy(), config.outputBasePath());
+
+        TuiRenderer tuiRenderer = new PlainCliRenderer();
+        tuiRenderer.showSummary(report);
+
+        return report.errorFiles() > 0
+            ? ExitCodes.FILE_WRITE_ERROR
+            : ExitCodes.SUCCESS;
+    }
+
+    /**
+     * Interactive TUI flow with screen navigation and back support.
+     *
+     * <p>Flow: Splash → Entity Selection → Layer Config → Preview → Write → Summary.
+     * Escape/back returns to the previous screen.
+     */
+    Integer runInteractiveTui()
+            throws ConfigLoader.ConfigLoadException, IOException {
+        SpringForgeConfig yamlConfig = loadConfig();
+        List<EntityDescriptor> allEntities = discoverEntities();
+
+        if (allEntities.isEmpty()) {
+            System.err.println("Error: No @Entity classes found");
+            return ExitCodes.ENTITY_PARSE_ERROR;
+        }
+
+        // Suppress SLF4J output during TUI mode to avoid corrupting the display
+        suppressLogging();
+
+        try (TamboUiRenderer tui = new TamboUiRenderer()) {
+            // Show splash briefly
+            tui.showSplash(SplashState.initial()
+                .withComplete(allEntities.size()));
+
+            // Flow state
+            AtomicReference<List<EntityDescriptor>> selectedEntities = new AtomicReference<>();
+            AtomicReference<LayerConfigState> layerConfig = new AtomicReference<>();
+            AtomicReference<List<GeneratedFile>> generatedFiles = new AtomicReference<>();
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+
+            TuiFlowStep step = TuiFlowStep.ENTITY_SELECTION;
+
+            while (step != TuiFlowStep.DONE) {
+                switch (step) {
+                    case ENTITY_SELECTION -> {
+                        step = runEntitySelection(tui, allEntities,
+                            selectedEntities, cancelled);
+                    }
+                    case LAYER_CONFIG -> {
+                        step = runLayerConfig(tui,
+                            selectedEntities.get().size(), layerConfig);
+                    }
+                    case PREVIEW -> {
+                        step = runPreview(tui, yamlConfig,
+                            selectedEntities.get(), layerConfig.get(),
+                            generatedFiles);
+                    }
+                    case WRITE -> {
+                        step = runWrite(tui, yamlConfig,
+                            selectedEntities.get(), layerConfig.get(),
+                            generatedFiles.get());
+                    }
+                    default -> step = TuiFlowStep.DONE;
+                }
+            }
+
+            if (cancelled.get()) {
+                return ExitCodes.SUCCESS;
+            }
+        } finally {
+            restoreLogging();
+        }
+
+        return ExitCodes.SUCCESS;
+    }
+
+    /**
+     * Suppress SLF4J Simple logger output during TUI mode.
+     * SLF4J Simple writes to stderr which corrupts the TamboUI alt-screen.
+     */
+    private void suppressLogging() {
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "off");
+    }
+
+    private void restoreLogging() {
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "info");
+    }
+
+    private TuiFlowStep runEntitySelection(TamboUiRenderer tui,
+            List<EntityDescriptor> allEntities,
+            AtomicReference<List<EntityDescriptor>> selectedOut,
+            AtomicBoolean cancelledOut) {
+
+        EntitySelectionState state = EntitySelectionState.initial(allEntities);
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>();
+
+        tui.showEntitySelection(state, new TuiRenderer.EntitySelectionCallbacks() {
+            @Override
+            public void onConfirm(List<EntityDescriptor> selected) {
+                selectedOut.set(selected);
+                nextStep.set(TuiFlowStep.LAYER_CONFIG);
+            }
+
+            @Override
+            public void onCancel() {
+                cancelledOut.set(true);
+                nextStep.set(TuiFlowStep.DONE);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    private TuiFlowStep runLayerConfig(TamboUiRenderer tui, int entityCount,
+            AtomicReference<LayerConfigState> configOut) {
+
+        LayerConfigState state = LayerConfigState.initial(entityCount);
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>();
+
+        tui.showLayerConfig(state, new TuiRenderer.LayerConfigCallbacks() {
+            @Override
+            public void onConfirm(LayerConfigState config) {
+                configOut.set(config);
+                nextStep.set(TuiFlowStep.PREVIEW);
+            }
+
+            @Override
+            public void onBack() {
+                nextStep.set(TuiFlowStep.ENTITY_SELECTION);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    private TuiFlowStep runPreview(TamboUiRenderer tui, SpringForgeConfig yamlConfig,
+            List<EntityDescriptor> entities, LayerConfigState layerConfig,
+            AtomicReference<List<GeneratedFile>> filesOut) {
+
+        Path basePath = resolveOutputPath(entities);
+        String basePackage = resolveBasePackage(yamlConfig, entities);
+        boolean verbose = parent != null && parent.isVerbose();
+
+        GenerationConfig config = new GenerationConfig(
+            entities, layerConfig.selectedLayers(),
+            layerConfig.springVersion(), layerConfig.mapperLib(),
+            layerConfig.conflictStrategy(), basePath, basePackage,
+            false, verbose
+        );
+
+        TemplateRenderer renderer = new TemplateRenderer();
+        BatchGenerator batchGenerator = new BatchGenerator(renderer);
+        List<GeneratedFile> files = batchGenerator.generateAll(config);
+        filesOut.set(files);
+
+        PreviewState state = PreviewState.initial(files);
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>();
+
+        tui.showPreview(state, new TuiRenderer.PreviewCallbacks() {
+            @Override
+            public void onConfirm() {
+                nextStep.set(TuiFlowStep.WRITE);
+            }
+
+            @Override
+            public void onBack() {
+                nextStep.set(TuiFlowStep.LAYER_CONFIG);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    private TuiFlowStep runWrite(TamboUiRenderer tui, SpringForgeConfig yamlConfig,
+            List<EntityDescriptor> entities, LayerConfigState layerConfig,
+            List<GeneratedFile> files) {
+
+        Path basePath = resolveOutputPath(entities);
+
+        // Show progress
+        GenerationProgressState progressState =
+            GenerationProgressState.initial(files.size());
+        tui.showProgress(progressState);
+
+        // Write files
+        CodeFileWriter writer = new CodeFileWriter();
+        GenerationReport report = writer.writeAll(
+            files, layerConfig.conflictStrategy(), basePath);
+
+        // Show summary — blocks until user quits
+        tui.showSummary(report);
+
+        return TuiFlowStep.DONE;
+    }
+
+    enum TuiFlowStep {
+        ENTITY_SELECTION, LAYER_CONFIG, PREVIEW, WRITE, DONE
     }
 
     SpringForgeConfig loadConfig() throws ConfigLoader.ConfigLoadException {
