@@ -16,6 +16,7 @@
 Reference docs:
 - PRD (what & why): `docs/PRD.md`
 - Technical Design (how): `docs/TECHNICAL_SPEC.md`
+- TamboUI API Doc as pdfs in order: `docs/api/tamboui-Doc- 0.2.0-SNAPSHOT API`
 
 ---
 
