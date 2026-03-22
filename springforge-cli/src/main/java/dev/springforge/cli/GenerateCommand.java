@@ -1,6 +1,7 @@
 package dev.springforge.cli;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -236,13 +237,18 @@ public class GenerateCommand implements Callable<Integer> {
         suppressLogging();
 
         try (TamboUiRenderer tui = new TamboUiRenderer()) {
-            // S1: Show splash while scanning entities in background
-            tui.showSplash(SplashState.initial());
+            // Detect config file
+            boolean configExists = Files.exists(
+                Path.of(System.getProperty("user.dir"), "springforge.yml"));
 
-            List<EntityDescriptor> allEntities = scanWithSplash(tui);
+            // S1: Show splash while scanning entities in background
+            tui.showSplash(SplashState.initial().withConfigFound(configExists));
+
+            List<EntityDescriptor> allEntities = scanWithSplash(tui, configExists);
 
             if (allEntities.isEmpty()) {
                 tui.showSplash(SplashState.initial()
+                    .withConfigFound(configExists)
                     .withError("No @Entity classes found. "
                         + "Press any key to exit."));
                 tui.waitForKeyOnSplash();
@@ -251,6 +257,7 @@ public class GenerateCommand implements Callable<Integer> {
 
             // Show completed splash and wait for user to press any key
             tui.showSplash(SplashState.initial()
+                .withConfigFound(configExists)
                 .withComplete(allEntities.size()));
             tui.waitForKeyOnSplash();
 
@@ -318,8 +325,8 @@ public class GenerateCommand implements Callable<Integer> {
      * Scans for entity files while updating the splash progress bar.
      * Discovers files first, then parses them one by one with progress updates.
      */
-    private List<EntityDescriptor> scanWithSplash(TamboUiRenderer tui)
-            throws IOException {
+    private List<EntityDescriptor> scanWithSplash(TamboUiRenderer tui,
+            boolean configExists) throws IOException {
         // Discover entity file paths
         List<Path> filesToParse = new ArrayList<>();
 
@@ -346,7 +353,7 @@ public class GenerateCommand implements Callable<Integer> {
         for (int i = 0; i < total; i++) {
             Path file = filesToParse.get(i);
             tui.showSplash(new SplashState(
-                total, i, file.getFileName().toString(), false, null));
+                total, i, file.getFileName().toString(), false, null, configExists));
 
             try {
                 entities.add(parser.parse(file));

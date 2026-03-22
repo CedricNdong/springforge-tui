@@ -53,7 +53,7 @@ public final class SplashScreen {
             Line.from(Span.raw("  ╚══════╝╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝").cyan(),
                        Span.raw("  TUI").bold().yellow()),
             Line.from(Span.raw("")),
-            Line.from(Span.raw("    From @Entity to full API stack — in seconds, not hours.").dim().italic())
+            Line.from(Span.raw("    \u26A1 From @Entity to full API stack \u2014 in seconds, not hours.").dim().italic())
         );
 
         Paragraph paragraph = Paragraph.builder()
@@ -72,15 +72,15 @@ public final class SplashScreen {
             : 0.0;
 
         String label = state.scanComplete()
-            ? "Scan complete — " + state.totalFiles() + " entities found"
-            : "Scanning... " + state.scannedFiles() + " files";
+            ? "\u2705 Scan complete \u2014 " + state.totalFiles() + " entities found"
+            : "\u23F3 Scanning... " + state.scannedFiles() + " files";
 
         Gauge gauge = Gauge.builder()
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.CYAN))
-                .title("Project Scan")
+                .title("\uD83D\uDD0D Project Scan")
                 .build())
             .gaugeStyle(Style.EMPTY.fg(Color.GREEN))
             .ratio(state.scanComplete() ? 1.0 : ratio)
@@ -93,8 +93,8 @@ public final class SplashScreen {
     private static void renderBottomPanel(Frame frame, Rect area, SplashState state) {
         List<Rect> columns = Layout.horizontal()
             .constraints(
-                Constraint.percentage(50),
-                Constraint.percentage(50)
+                Constraint.percentage(35),
+                Constraint.percentage(65)
             )
             .split(area);
 
@@ -106,27 +106,32 @@ public final class SplashScreen {
         Text statusText;
         if (state.errorMessage() != null) {
             statusText = Text.from(
-                Line.from(Span.raw(" Error: ").bold().red(),
+                Line.from(Span.raw(" \u274C Error: ").bold().red(),
                     Span.raw(state.errorMessage()).red()),
                 Line.from(Span.raw("")),
-                Line.from(Span.raw(" Check your project path and try again.").dim())
+                Line.from(Span.raw(" Check your project path").dim()),
+                Line.from(Span.raw(" and try again.").dim())
             );
         } else if (state.scanComplete()) {
             statusText = Text.from(
-                Line.from(Span.raw(" Found ").green(),
+                Line.from(Span.raw(" \u2705 Found ").green(),
                     Span.raw(String.valueOf(state.totalFiles())).bold().green(),
                     Span.raw(" @Entity classes").green()),
                 Line.from(Span.raw("")),
-                Line.from(Span.raw(" Press any key to continue...").bold().yellow())
+                Line.from(state.configFound()
+                    ? Span.raw(" \uD83D\uDCC4 springforge.yml found").green()
+                    : Span.raw(" \uD83D\uDCC4 No springforge.yml").dim()),
+                Line.from(Span.raw("")),
+                Line.from(Span.raw(" \uD83D\uDC49 Press any key to continue...").bold().yellow())
             );
         } else if (!state.currentFile().isEmpty()) {
             statusText = Text.from(
-                Line.from(Span.raw(" Parsing: ").dim(),
+                Line.from(Span.raw(" \u23F3 Parsing: ").dim(),
                     Span.raw(state.currentFile()).white())
             );
         } else {
             statusText = Text.from(
-                Line.from(Span.raw(" Initializing scan...").dim())
+                Line.from(Span.raw(" \u23F3 Initializing scan...").dim())
             );
         }
 
@@ -138,7 +143,7 @@ public final class SplashScreen {
                 .borderStyle(Style.EMPTY.fg(state.errorMessage() != null
                     ? Color.RED : Color.GREEN))
                 .title(Title.from(
-                    Line.from(Span.raw(" Status ").bold())
+                    Line.from(Span.raw(" \uD83D\uDCCA Status ").bold())
                 ))
                 .build())
             .build();
@@ -149,38 +154,70 @@ public final class SplashScreen {
     private static void renderQuickReference(Frame frame, Rect area, SplashState state) {
         Text refText;
         if (state.scanComplete()) {
-            refText = Text.from(
-                Line.from(Span.raw(" What happens next:").bold().cyan()),
-                Line.from(Span.raw("")),
-                Line.from(Span.raw("  1. ").cyan(), Span.raw("Select entities to generate")),
-                Line.from(Span.raw("  2. ").cyan(), Span.raw("Configure layers & options")),
-                Line.from(Span.raw("  3. ").cyan(), Span.raw("Preview generated code")),
-                Line.from(Span.raw("  4. ").cyan(), Span.raw("Write files to disk")),
-                Line.from(Span.raw("")),
-                Line.from(Span.raw(" Key shortcuts:").bold().yellow()),
-                Line.from(Span.raw("  Tab").bold(), Span.raw("     Next screen").dim()),
-                Line.from(Span.raw("  Esc/←").bold(), Span.raw("   Go back").dim()),
-                Line.from(Span.raw("  Ctrl+G").bold(), Span.raw("  Quick generate").dim()),
-                Line.from(Span.raw("  Ctrl+C").bold(), Span.raw("  Quit").dim()),
-                Line.from(Span.raw("")),
-                Line.from(Span.raw("  springforge --help").yellow(),
-                    Span.raw(" for CLI options").dim())
-            );
+            var lines = new java.util.ArrayList<Line>();
+
+            lines.add(Line.from(Span.raw(" \uD83D\uDCCB What happens next:").bold().cyan()));
+            lines.add(Line.from(Span.raw("")));
+            lines.add(Line.from(Span.raw("  \uD83D\uDCE6 1. ").cyan(), Span.raw("Select entities to generate")));
+            lines.add(Line.from(Span.raw("  \u2699  2. ").cyan(), Span.raw("Configure layers & options")));
+            lines.add(Line.from(Span.raw("  \uD83D\uDC41  3. ").cyan(), Span.raw("Preview generated code")));
+            lines.add(Line.from(Span.raw("  \uD83D\uDCBE 4. ").cyan(), Span.raw("Write files to disk")));
+            lines.add(Line.from(Span.raw("")));
+
+            // Config file info
+            if (state.configFound()) {
+                lines.add(Line.from(
+                    Span.raw(" \uD83D\uDCC4 springforge.yml").bold().green(),
+                    Span.raw(" detected — your previous settings are ready!")));
+            } else {
+                lines.add(Line.from(
+                    Span.raw(" \uD83D\uDCC4 springforge.yml").bold().yellow(),
+                    Span.raw(" not found — your choices will be saved for next time.")));
+            }
+            lines.add(Line.from(Span.raw("")));
+
+            // Key shortcuts
+            lines.add(Line.from(Span.raw(" \u2328  Some key shortcuts:").bold().yellow()));
+            lines.add(Line.from(
+                Span.raw("  Tab").bold(), Span.raw("  Next screen   ").dim(),
+                Span.raw("Esc/\u2190").bold(), Span.raw("  Go back").dim()));
+            lines.add(Line.from(
+                Span.raw("  Ctrl+G").bold(), Span.raw(" Generate     ").dim(),
+                Span.raw("Ctrl+C").bold(), Span.raw("  Quit").dim()));
+            lines.add(Line.from(Span.raw("  \u2139 Each screen shows its available keys in the footer.").dim()));
+            lines.add(Line.from(Span.raw("")));
+
+            // CLI help
+            lines.add(Line.from(
+                Span.raw("  springforge --help").yellow(),
+                Span.raw("  for all CLI options").dim()));
+            lines.add(Line.from(Span.raw("")));
+
+            // Fun message
+            lines.add(Line.from(Span.raw("  \u2615 Love SpringForge? Star us on GitHub & spread the word!").dim()));
+            lines.add(Line.from(Span.raw("  \uD83D\uDE80 Happy generating! ").bold().green()));
+
+            refText = Text.from(lines.toArray(Line[]::new));
         } else {
             refText = Text.from(
-                Line.from(Span.raw(" SpringForge TUI").bold().cyan()),
+                Line.from(Span.raw(" \uD83D\uDE80 SpringForge TUI").bold().cyan()),
                 Line.from(Span.raw("")),
                 Line.from(Span.raw(" Generates a complete Spring Boot API")),
                 Line.from(Span.raw(" stack from your @Entity classes:")),
                 Line.from(Span.raw("")),
-                Line.from(Span.raw("  DTO").cyan(), Span.raw("          Data Transfer Objects")),
-                Line.from(Span.raw("  Mapper").cyan(), Span.raw("       Entity ↔ DTO mapping")),
-                Line.from(Span.raw("  Repository").cyan(), Span.raw("   Spring Data JPA")),
-                Line.from(Span.raw("  Service").cyan(), Span.raw("      Business logic layer")),
-                Line.from(Span.raw("  Controller").cyan(), Span.raw("   REST endpoints")),
+                Line.from(Span.raw("  \uD83D\uDCE6 DTO").cyan(), Span.raw("          Data Transfer Objects")),
+                Line.from(Span.raw("  \uD83D\uDD04 Mapper").cyan(), Span.raw("       Entity \u2194 DTO mapping")),
+                Line.from(Span.raw("  \uD83D\uDDC4  Repository").cyan(), Span.raw("   Spring Data JPA")),
+                Line.from(Span.raw("  \u2699  Service").cyan(), Span.raw("      Business logic layer")),
+                Line.from(Span.raw("  \uD83C\uDF10 Controller").cyan(), Span.raw("   REST endpoints")),
+                Line.from(Span.raw("")),
+                Line.from(Span.raw("  \u2328 Key shortcuts are shown in the footer").dim()),
+                Line.from(Span.raw("  of each screen.").dim()),
                 Line.from(Span.raw("")),
                 Line.from(Span.raw("  springforge --help").yellow(),
-                    Span.raw(" for CLI options").dim())
+                    Span.raw("  for CLI options").dim()),
+                Line.from(Span.raw("")),
+                Line.from(Span.raw("  \u2615 Love SpringForge? Star us on GitHub!").dim())
             );
         }
 
@@ -191,7 +228,7 @@ public final class SplashScreen {
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.CYAN))
                 .title(Title.from(
-                    Line.from(Span.raw(" Quick Reference ").bold())
+                    Line.from(Span.raw(" \u2728 Quick Reference ").bold())
                 ))
                 .build())
             .build();

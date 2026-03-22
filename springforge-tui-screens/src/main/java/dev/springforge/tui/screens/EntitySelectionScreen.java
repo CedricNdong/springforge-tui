@@ -104,20 +104,22 @@ public final class EntitySelectionScreen {
             lines.add(Line.from(Span.raw("No entities match filter").dim()));
         }
 
-        lines.add(Line.from(Span.raw("")));
-        lines.add(Line.from(
-            Span.raw("[A]").bold().yellow(), Span.raw(" All  ").dim(),
-            Span.raw("[N]").bold().yellow(), Span.raw(" None  ").dim(),
-            Span.raw("[/]").bold().yellow(), Span.raw(" Filter").dim()
-        ));
-
         Paragraph list = Paragraph.builder()
             .text(Text.from(lines.toArray(Line[]::new)))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
-                .title("Entities (" + filtered.size() + ")")
+                .title(Title.from(Line.from(
+                    Span.raw(" Selected: ").bold(),
+                    Span.raw(String.valueOf(state.selectedEntityNames().size())).cyan(),
+                    Span.raw(" ")
+                )))
+                .titleBottom(Title.from(Line.from(
+                    Span.raw(" Total Entities Found: ").bold(),
+                    Span.raw(String.valueOf(state.entities().size())).cyan(),
+                    Span.raw(" ")
+                )))
                 .build())
             .build();
 
@@ -189,22 +191,33 @@ public final class EntitySelectionScreen {
 
     private static void renderFooter(Frame frame, Rect area,
             EntitySelectionState state) {
-        Line footer = Line.from(
-            Span.raw(" Selected: ").bold(),
-            Span.raw(state.selectedEntityNames().size() + " entities").cyan(),
-            Span.raw("   "),
+        List<Rect> footerLayout = Layout.horizontal()
+            .constraints(
+                Constraint.fill(),
+                Constraint.length(20)
+            )
+            .split(area);
+
+        // Left: all action keys
+        Line leftLine = Line.from(
+            Span.raw(" [↑↓]").bold().yellow(),
+            Span.raw(" Nav ").dim(),
+            Span.raw("[Space]").bold().yellow(),
+            Span.raw(" Toggle ").dim(),
+            Span.raw("[A]").bold().yellow(),
+            Span.raw(" All ").dim(),
+            Span.raw("[N]").bold().yellow(),
+            Span.raw(" None ").dim(),
+            Span.raw("[/]").bold().yellow(),
+            Span.raw(" Filter ").dim(),
             Span.raw("[Tab]").bold().yellow(),
-            Span.raw(" Layer Config  ").dim(),
+            Span.raw(" Next ").dim(),
             Span.raw("[Ctrl+G]").bold().yellow(),
-            Span.raw(" Generate  ").dim(),
-            Span.raw("[?]").bold().yellow(),
-            Span.raw(" Help  ").dim(),
-            Span.raw("[q]").bold().yellow(),
-            Span.raw(" Quit").dim()
+            Span.raw(" Generate").dim()
         );
 
-        Paragraph footerWidget = Paragraph.builder()
-            .text(Text.from(footer))
+        Paragraph leftFooter = Paragraph.builder()
+            .text(Text.from(leftLine))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
@@ -212,7 +225,26 @@ public final class EntitySelectionScreen {
                 .build())
             .build();
 
-        frame.renderWidget(footerWidget, area);
+        frame.renderWidget(leftFooter, footerLayout.get(0));
+
+        // Right: help + quit
+        Line rightLine = Line.from(
+            Span.raw(" [?]").bold().yellow(),
+            Span.raw(" Help ").dim(),
+            Span.raw("[q]").bold().yellow(),
+            Span.raw(" Quit").dim()
+        );
+
+        Paragraph rightFooter = Paragraph.builder()
+            .text(Text.from(rightLine))
+            .block(Block.builder()
+                .borders(Borders.ALL)
+                .borderType(BorderType.ROUNDED)
+                .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
+                .build())
+            .build();
+
+        frame.renderWidget(rightFooter, footerLayout.get(1));
     }
 
     private static void renderHelpOverlay(Frame frame, Rect area) {
