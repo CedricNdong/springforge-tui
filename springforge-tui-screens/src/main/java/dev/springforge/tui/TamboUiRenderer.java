@@ -219,8 +219,6 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Entity Selection (S2) ────────────────────────────────────────
-    // Footer: [Tab] Layer Config  [Ctrl+G] Generate  [?] Help  [q] Quit
-    // Help:   ↑/↓ Navigate  Space Toggle  A Select all  N Deselect  / Filter
 
     private boolean handleEntitySelectionEvent(KeyEvent ke) {
         // In filter mode, typing goes to filter text
@@ -234,13 +232,13 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             completeScreen();
             return true;
         }
-        // Esc → cancel
-        if (ke.isCancel()) {
+        // [⇧Tab] or Esc → cancel / quit (S2 is first interactive screen)
+        if (ke.isFocusPrevious() || ke.isCancel()) {
             entityCallbacks.onCancel();
             completeScreen();
             return true;
         }
-        // [Tab] → next screen (Layer Config) — same as confirm
+        // [Tab] → next screen (Layer Config)
         if (ke.isFocusNext()) {
             if (entitySelectionState.hasSelection()) {
                 entityCallbacks.onConfirm(entitySelectionState.selectedEntities());
@@ -330,11 +328,10 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Layer Config (S3) ────────────────────────────────────────────
-    // Footer: [←] Back  [Tab] Preview  [Ctrl+G] Generate
 
     private boolean handleLayerConfigEvent(KeyEvent ke) {
-        // [←] or Esc → back to entity selection
-        if (ke.isCancel() || ke.isLeft()) {
+        // [⇧Tab] or Esc → back to entity selection
+        if (ke.isFocusPrevious() || ke.isCancel()) {
             layerCallbacks.onBack();
             completeScreen();
             return true;
@@ -402,11 +399,10 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Preview (S4) ─────────────────────────────────────────────────
-    // Footer: [↑/↓] Select file  [PgUp/PgDn] Scroll  [←] Back  [Ctrl+G] Generate
 
     private boolean handlePreviewEvent(KeyEvent ke) {
-        // [←] or Esc → back to layer config
-        if (ke.isCancel() || ke.isLeft()) {
+        // [⇧Tab] or Esc → back to layer config
+        if (ke.isFocusPrevious() || ke.isCancel()) {
             previewCallbacks.onBack();
             completeScreen();
             return true;

@@ -62,15 +62,15 @@ public final class EntitySelectionScreen {
     private static void renderHeader(Frame frame, Rect area, EntitySelectionState state) {
         String filterInfo = state.filterText().isEmpty()
             ? ""
-            : "  Filter: " + state.filterText();
+            : "  \uD83D\uDD0D Filter: " + state.filterText();
 
         Block header = Block.builder()
             .borders(Borders.ALL)
             .borderType(BorderType.ROUNDED)
             .borderStyle(Style.EMPTY.fg(Color.CYAN))
             .title(Title.from(Line.from(
-                Span.raw(" SpringForge ").bold().cyan(),
-                Span.raw("— Entity Selection ").white(),
+                Span.raw(" \uD83D\uDCE6 SpringForge ").bold().cyan(),
+                Span.raw("\u2014 Entity Selection ").white(),
                 Span.raw(filterInfo).yellow()
             )))
             .build();
@@ -88,7 +88,11 @@ public final class EntitySelectionScreen {
             boolean selected = state.selectedEntityNames().contains(entity.className());
             boolean focused = (i == state.focusedIndex());
 
-            String checkbox = selected ? "[x] " : "[ ] ";
+            String pointer = focused ? " \u25B6 " : "   ";
+            String checkbox = selected ? "\u2705 " : "\u2B1C ";
+            Span pointerSpan = focused
+                ? Span.raw(pointer).cyan()
+                : Span.raw(pointer);
             Span checkSpan = selected
                 ? Span.raw(checkbox).green()
                 : Span.raw(checkbox).dim();
@@ -97,11 +101,13 @@ public final class EntitySelectionScreen {
                 ? Span.raw(entity.className()).bold().cyan()
                 : Span.raw(entity.className()).white();
 
-            lines.add(Line.from(checkSpan, nameSpan));
+            Span pkgSpan = Span.raw("  " + entity.packageName()).dim();
+
+            lines.add(Line.from(pointerSpan, checkSpan, nameSpan, pkgSpan));
         }
 
         if (filtered.isEmpty()) {
-            lines.add(Line.from(Span.raw("No entities match filter").dim()));
+            lines.add(Line.from(Span.raw(" \uD83D\uDD0D No entities match filter").dim()));
         }
 
         Paragraph list = Paragraph.builder()
@@ -111,12 +117,12 @@ public final class EntitySelectionScreen {
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
                 .title(Title.from(Line.from(
-                    Span.raw(" Selected: ").bold(),
+                    Span.raw(" \u2705 Selected: ").bold(),
                     Span.raw(String.valueOf(state.selectedEntityNames().size())).cyan(),
                     Span.raw(" ")
                 )))
                 .titleBottom(Title.from(Line.from(
-                    Span.raw(" Total Entities Found: ").bold(),
+                    Span.raw(" \uD83D\uDCCA Total Entities Found: ").bold(),
                     Span.raw(String.valueOf(state.entities().size())).cyan(),
                     Span.raw(" ")
                 )))
@@ -132,27 +138,27 @@ public final class EntitySelectionScreen {
         List<Line> lines = new ArrayList<>();
 
         if (focused == null) {
-            lines.add(Line.from(Span.raw("No entity selected").dim()));
+            lines.add(Line.from(Span.raw(" No entity selected").dim()));
         } else {
             lines.add(Line.from(
-                Span.raw("Package: ").bold(),
+                Span.raw(" \uD83D\uDCC1 Package: ").bold(),
                 Span.raw(focused.packageName()).yellow()
             ));
             lines.add(Line.from(
-                Span.raw("Namespace: ").bold(),
+                Span.raw(" \uD83C\uDF10 Namespace: ").bold(),
                 Span.raw(focused.namespace().name().toLowerCase()).white()
             ));
             lines.add(Line.from(
-                Span.raw("Lombok: ").bold(),
+                Span.raw(" \uD83C\uDF36  Lombok: ").bold(),
                 focused.hasLombok()
-                    ? Span.raw("yes").green()
-                    : Span.raw("no").dim()
+                    ? Span.raw("\u2705 yes").green()
+                    : Span.raw("\u274C no").dim()
             ));
             lines.add(Line.from(Span.raw("")));
-            lines.add(Line.from(Span.raw("Fields:").bold()));
+            lines.add(Line.from(Span.raw(" \uD83D\uDD27 Fields:").bold()));
 
             for (FieldDescriptor field : focused.fields()) {
-                String prefix = field.isId() ? "  > " : "  - ";
+                String prefix = field.isId() ? "  \uD83D\uDD11 " : "  \u2022 ";
                 List<Span> spans = new ArrayList<>();
                 spans.add(Span.raw(prefix));
                 spans.add(Span.raw(field.type()).cyan());
@@ -169,7 +175,7 @@ public final class EntitySelectionScreen {
 
             lines.add(Line.from(Span.raw("")));
             lines.add(Line.from(
-                Span.raw("Annotations: ").bold(),
+                Span.raw(" \uD83C\uDFF7  Annotations: ").bold(),
                 Span.raw(String.join(", ",
                     focused.classAnnotations().stream().map(a -> "@" + a).toList())).dim()
             ));
@@ -181,8 +187,10 @@ public final class EntitySelectionScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.BLUE))
-                .title("Entity Details — " +
-                    (focused != null ? focused.className() : ""))
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDD0E Entity Details ").bold(),
+                    Span.raw(focused != null ? "\u2014 " + focused.className() : "").cyan()
+                )))
                 .build())
             .build();
 
@@ -194,11 +202,11 @@ public final class EntitySelectionScreen {
         List<Rect> footerLayout = Layout.horizontal()
             .constraints(
                 Constraint.fill(),
-                Constraint.length(20)
+                Constraint.length(22)
             )
             .split(area);
 
-        // Left: all action keys
+        // Left: navigation + action keys
         Line leftLine = Line.from(
             Span.raw(" [↑↓]").bold().yellow(),
             Span.raw(" Nav ").dim(),
@@ -211,7 +219,9 @@ public final class EntitySelectionScreen {
             Span.raw("[/]").bold().yellow(),
             Span.raw(" Filter ").dim(),
             Span.raw("[Tab]").bold().yellow(),
-            Span.raw(" Next ").dim(),
+            Span.raw(" Next").dim(),
+            Span.raw("[⇧ Tab]").bold().yellow(),
+            Span.raw(" Back ").dim(),
             Span.raw("[Ctrl+G]").bold().yellow(),
             Span.raw(" Generate").dim()
         );
@@ -232,7 +242,7 @@ public final class EntitySelectionScreen {
             Span.raw(" [?]").bold().yellow(),
             Span.raw(" Help ").dim(),
             Span.raw("[q]").bold().yellow(),
-            Span.raw(" Quit").dim()
+            Span.raw(" Quit \u274C").dim()
         );
 
         Paragraph rightFooter = Paragraph.builder()
@@ -249,20 +259,21 @@ public final class EntitySelectionScreen {
 
     private static void renderHelpOverlay(Frame frame, Rect area) {
         Text helpText = Text.from(
-            Line.from(Span.raw("  Keyboard Shortcuts").bold().cyan()),
+            Line.from(Span.raw(" ")),
+            Line.from(Span.raw("  \u2328  Keyboard Shortcuts").bold().cyan()),
             Line.from(Span.raw("")),
             Line.from(Span.raw("  ↑/↓       ").bold().yellow(), Span.raw("Navigate entities")),
             Line.from(Span.raw("  Space     ").bold().yellow(), Span.raw("Toggle selection")),
             Line.from(Span.raw("  A         ").bold().yellow(), Span.raw("Select all")),
             Line.from(Span.raw("  N         ").bold().yellow(), Span.raw("Deselect all")),
             Line.from(Span.raw("  /         ").bold().yellow(), Span.raw("Fuzzy search / filter")),
-            Line.from(Span.raw("  Tab       ").bold().yellow(), Span.raw("Next screen")),
-            Line.from(Span.raw("  Esc       ").bold().yellow(), Span.raw("Go back / cancel")),
+            Line.from(Span.raw("  Tab       ").bold().yellow(), Span.raw("Next screen ")),
+            Line.from(Span.raw("  \u21E7 Tab     ").bold().yellow(), Span.raw("Back / Cancel")),
             Line.from(Span.raw("  Ctrl+G    ").bold().yellow(), Span.raw("Start generation")),
             Line.from(Span.raw("  ?         ").bold().yellow(), Span.raw("Toggle this help")),
             Line.from(Span.raw("  q         ").bold().yellow(), Span.raw("Quit")),
             Line.from(Span.raw("")),
-            Line.from(Span.raw("  Press ? to close").dim())
+            Line.from(Span.raw("  Press ").dim(), Span.raw("?").bold().yellow(), Span.raw(" to close").dim())
         );
 
         Paragraph help = Paragraph.builder()
@@ -271,7 +282,7 @@ public final class EntitySelectionScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.YELLOW))
-                .title(" Help ")
+                .title(" \u2753 Help ")
                 .build())
             .build();
 
