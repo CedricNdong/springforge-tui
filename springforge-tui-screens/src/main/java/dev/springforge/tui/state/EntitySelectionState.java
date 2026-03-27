@@ -50,14 +50,24 @@ public record EntitySelectionState(
     }
 
     public EntitySelectionState selectAll() {
-        Set<String> all = entities.stream()
+        Set<String> all = new HashSet<>(selectedEntityNames);
+        filteredEntities().stream()
             .map(EntityDescriptor::className)
-            .collect(Collectors.toSet());
+            .forEach(all::add);
         return new EntitySelectionState(entities, all, focusedIndex, filterText, showHelp);
     }
 
     public EntitySelectionState selectNone() {
-        return new EntitySelectionState(entities, Set.of(), focusedIndex, filterText, showHelp);
+        if (filterText.isEmpty()) {
+            return new EntitySelectionState(entities, Set.of(), focusedIndex, filterText, showHelp);
+        }
+        // Only deselect filtered entities, keep others selected
+        Set<String> filtered = filteredEntities().stream()
+            .map(EntityDescriptor::className)
+            .collect(Collectors.toSet());
+        Set<String> remaining = new HashSet<>(selectedEntityNames);
+        remaining.removeAll(filtered);
+        return new EntitySelectionState(entities, remaining, focusedIndex, filterText, showHelp);
     }
 
     public EntitySelectionState withFilter(String filterText) {

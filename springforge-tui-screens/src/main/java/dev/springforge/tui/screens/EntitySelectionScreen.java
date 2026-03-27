@@ -101,9 +101,7 @@ public final class EntitySelectionScreen {
                 ? Span.raw(entity.className()).bold().cyan()
                 : Span.raw(entity.className()).white();
 
-            Span pkgSpan = Span.raw("  " + entity.packageName()).dim();
-
-            lines.add(Line.from(pointerSpan, checkSpan, nameSpan, pkgSpan));
+            lines.add(Line.from(pointerSpan, checkSpan, nameSpan));
         }
 
         if (filtered.isEmpty()) {
@@ -122,8 +120,8 @@ public final class EntitySelectionScreen {
                     Span.raw(" ")
                 )))
                 .titleBottom(Title.from(Line.from(
-                    Span.raw(" \uD83D\uDCCA Total Entities Found: ").bold(),
-                    Span.raw(String.valueOf(state.entities().size())).cyan(),
+                    Span.raw(" \uD83D\uDCCA Total Entities Found: ").dim(),
+                    Span.raw(String.valueOf(state.entities().size())).dim(),
                     Span.raw(" ")
                 )))
                 .build())
@@ -151,8 +149,13 @@ public final class EntitySelectionScreen {
             lines.add(Line.from(
                 Span.raw(" \uD83C\uDF36  Lombok: ").bold(),
                 focused.hasLombok()
-                    ? Span.raw("\u2705 yes").green()
-                    : Span.raw("\u274C no").dim()
+                    ? Span.raw("yes").green()
+                    : Span.raw("no").red()
+            ));
+            lines.add(Line.from(
+                Span.raw(" \uD83C\uDFF7  Annotations: ").bold(),
+                Span.raw(String.join(", ",
+                    focused.classAnnotations().stream().map(a -> "@" + a).toList())).dim()
             ));
             lines.add(Line.from(Span.raw("")));
             lines.add(Line.from(Span.raw(" \uD83D\uDD27 Fields:").bold()));
@@ -172,13 +175,6 @@ public final class EntitySelectionScreen {
                 }
                 lines.add(Line.from(spans.toArray(Span[]::new)));
             }
-
-            lines.add(Line.from(Span.raw("")));
-            lines.add(Line.from(
-                Span.raw(" \uD83C\uDFF7  Annotations: ").bold(),
-                Span.raw(String.join(", ",
-                    focused.classAnnotations().stream().map(a -> "@" + a).toList())).dim()
-            ));
         }
 
         Paragraph detail = Paragraph.builder()
