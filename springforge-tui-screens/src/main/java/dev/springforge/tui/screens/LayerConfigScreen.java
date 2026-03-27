@@ -47,7 +47,7 @@ public final class LayerConfigScreen {
             )
             .split(area);
 
-        renderHeader(frame, mainLayout.get(0));
+        renderHeader(frame, mainLayout.get(0), state);
 
         List<Rect> contentLayout = Layout.horizontal()
             .constraints(
@@ -58,17 +58,26 @@ public final class LayerConfigScreen {
 
         renderLayerList(frame, contentLayout.get(0), state);
         renderOptions(frame, contentLayout.get(1), state);
-        renderFooter(frame, mainLayout.get(2), state);
+        renderFooter(frame, mainLayout.get(2));
     }
 
-    private static void renderHeader(Frame frame, Rect area) {
+    private static void renderHeader(Frame frame, Rect area, LayerConfigState state) {
         Block header = Block.builder()
             .borders(Borders.ALL)
             .borderType(BorderType.ROUNDED)
             .borderStyle(Style.EMPTY.fg(Color.CYAN))
             .title(Title.from(Line.from(
-                Span.raw(" SpringForge ").bold().cyan(),
-                Span.raw("— Layer Configuration ").white()
+                Span.raw(" \u2699 SpringForge ").bold().cyan(),
+                Span.raw("\u2014 Layer Configuration ").white()
+            )))
+            .titleBottom(Title.from(Line.from(
+                Span.raw(" \uD83D\uDCE6 Entities: ").dim(),
+                Span.raw(String.valueOf(state.entityCount())).cyan(),
+                Span.raw(" | \uD83D\uDCC2 Layers: ").dim(),
+                Span.raw(String.valueOf(state.selectedLayers().size())).cyan(),
+                Span.raw(" | \uD83D\uDCC4 Files: ~").dim(),
+                Span.raw(String.valueOf(state.estimatedFileCount())).cyan(),
+                Span.raw(" ")
             )))
             .build();
 
@@ -83,18 +92,22 @@ public final class LayerConfigScreen {
             boolean selected = state.selectedLayers().contains(layer);
             boolean focused = (i == state.focusedIndex());
 
-            String checkbox = selected ? "[x] " : "[ ] ";
-            String label = formatLayerName(layer);
+            String pointer = focused ? " \u25B6 " : "   ";
+            String checkbox = selected ? "\u2705 " : "\u2B1C ";
 
+            Span pointerSpan = focused
+                ? Span.raw(pointer).cyan()
+                : Span.raw(pointer);
             Span checkSpan = selected
                 ? Span.raw(checkbox).green()
                 : Span.raw(checkbox).dim();
 
+            String label = formatLayerName(layer);
             Span labelSpan = focused
                 ? Span.raw(label).bold().cyan()
                 : Span.raw(label).white();
 
-            lines.add(Line.from(checkSpan, labelSpan));
+            lines.add(Line.from(pointerSpan, checkSpan, labelSpan));
         }
 
         Paragraph list = Paragraph.builder()
@@ -103,7 +116,9 @@ public final class LayerConfigScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
-                .title("Layers to Generate")
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCC2 Layers to Generate ").bold()
+                )))
                 .build())
             .build();
 
@@ -113,24 +128,37 @@ public final class LayerConfigScreen {
     private static void renderOptions(Frame frame, Rect area, LayerConfigState state) {
         List<Line> lines = new ArrayList<>();
 
-        lines.add(Line.from(Span.raw("Spring Boot:  ").bold(),
+        lines.add(Line.from(
+            Span.raw(" \uD83C\uDF31 Spring Boot:").bold(),
+            Span.raw("  "),
             radioOption("3.x", state.springVersion() == SpringVersion.V3),
             Span.raw("  "),
-            radioOption("2.x", state.springVersion() == SpringVersion.V2)
+            radioOption("2.x", state.springVersion() == SpringVersion.V2),
+            Span.raw("    "),
+            Span.raw("[1]").bold().yellow(), Span.raw("/").dim(),
+            Span.raw("[2]").bold().yellow(), Span.raw(" switch").dim()
         ));
         lines.add(Line.from(Span.raw("")));
 
-        lines.add(Line.from(Span.raw("Mapper:       ").bold(),
+        lines.add(Line.from(
+            Span.raw(" \uD83D\uDD04 Mapper:").bold(),
+            Span.raw("       "),
             radioOption("MapStruct", state.mapperLib() == MapperLib.MAPSTRUCT),
             Span.raw("  "),
-            radioOption("ModelMapper", state.mapperLib() == MapperLib.MODEL_MAPPER)
+            radioOption("ModelMapper", state.mapperLib() == MapperLib.MODEL_MAPPER),
+            Span.raw("  "),
+            Span.raw("[M]").bold().yellow(), Span.raw(" toggle").dim()
         ));
         lines.add(Line.from(Span.raw("")));
 
-        lines.add(Line.from(Span.raw("On conflict:  ").bold(),
+        lines.add(Line.from(
+            Span.raw(" \u26A0 On conflict:").bold(),
+            Span.raw("  "),
             radioOption("Skip", state.conflictStrategy() == ConflictStrategy.SKIP),
             Span.raw("  "),
-            radioOption("Overwrite", state.conflictStrategy() == ConflictStrategy.OVERWRITE)
+            radioOption("Overwrite", state.conflictStrategy() == ConflictStrategy.OVERWRITE),
+            Span.raw("    "),
+            Span.raw("[O]").bold().yellow(), Span.raw(" toggle").dim()
         ));
 
         Paragraph options = Paragraph.builder()
@@ -139,32 +167,43 @@ public final class LayerConfigScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.BLUE))
-                .title("Options")
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDEE0 Options ").bold()
+                )))
                 .build())
             .build();
 
         frame.renderWidget(options, area);
     }
 
-    private static void renderFooter(Frame frame, Rect area, LayerConfigState state) {
-        Line footer = Line.from(
-            Span.raw(" Entities: ").bold(),
-            Span.raw(String.valueOf(state.entityCount())).cyan(),
-            Span.raw(" | Layers: ").bold(),
-            Span.raw(String.valueOf(state.selectedLayers().size())).cyan(),
-            Span.raw(" | Files: ~").bold(),
-            Span.raw(String.valueOf(state.estimatedFileCount())).cyan(),
-            Span.raw("   "),
-            Span.raw("[←]").bold().yellow(),
-            Span.raw(" Back  ").dim(),
+    private static void renderFooter(Frame frame, Rect area) {
+        List<Rect> footerLayout = Layout.horizontal()
+            .constraints(
+                Constraint.fill(),
+                Constraint.length(22)
+            )
+            .split(area);
+
+        // Left: action keys
+        Line leftLine = Line.from(
+            Span.raw(" [\u2191\u2193]").bold().yellow(),
+            Span.raw(" Nav ").dim(),
+            Span.raw("[Space]").bold().yellow(),
+            Span.raw(" Toggle ").dim(),
+            Span.raw("[1][2]").bold().yellow(),
+            Span.raw(" Spring ").dim(),
+            Span.raw("[M]").bold().yellow(),
+            Span.raw(" Mapper ").dim(),
+            Span.raw("[O]").bold().yellow(),
+            Span.raw(" Conflict ").dim(),
             Span.raw("[Tab]").bold().yellow(),
-            Span.raw(" Preview  ").dim(),
-            Span.raw("[Ctrl+G]").bold().yellow(),
-            Span.raw(" Generate").dim()
+            Span.raw(" Next ").dim(),
+            Span.raw("[\u21E7Tab]").bold().yellow(),
+            Span.raw(" Back").dim()
         );
 
-        Paragraph footerWidget = Paragraph.builder()
-            .text(Text.from(footer))
+        Paragraph leftFooter = Paragraph.builder()
+            .text(Text.from(leftLine))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
@@ -172,13 +211,30 @@ public final class LayerConfigScreen {
                 .build())
             .build();
 
-        frame.renderWidget(footerWidget, area);
+        frame.renderWidget(leftFooter, footerLayout.get(0));
+
+        // Right: generate + quit
+        Line rightLine = Line.from(
+            Span.raw(" [Ctrl+G]").bold().yellow(),
+            Span.raw(" Generate").dim()
+        );
+
+        Paragraph rightFooter = Paragraph.builder()
+            .text(Text.from(rightLine))
+            .block(Block.builder()
+                .borders(Borders.ALL)
+                .borderType(BorderType.ROUNDED)
+                .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
+                .build())
+            .build();
+
+        frame.renderWidget(rightFooter, footerLayout.get(1));
     }
 
     private static Span radioOption(String label, boolean selected) {
         return selected
-            ? Span.raw("● " + label).green()
-            : Span.raw("○ " + label).dim();
+            ? Span.raw("\u25C9 " + label).green()
+            : Span.raw("\u25CB " + label).dim();
     }
 
     private static String formatLayerName(Layer layer) {
