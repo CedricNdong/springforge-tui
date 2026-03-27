@@ -31,6 +31,7 @@ import dev.tamboui.tui.TuiRunner;
 import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 import dev.tamboui.tui.event.TickEvent;
+import dev.tamboui.widgets.tree.TreeState;
 
 /**
  * Full interactive TUI implementation using TamboUI.
@@ -71,6 +72,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
 
     // Splash screen: wait for any key before proceeding
     private volatile boolean waitingForSplashKey;
+
+    // Tree state for preview file tree (mutable, managed by TreeWidget)
+    private TreeState previewTreeState;
 
     // Latch to block show*() callers until the screen is completed
     private final AtomicReference<CountDownLatch> screenLatch = new AtomicReference<>();
@@ -160,6 +164,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     public void showPreview(PreviewState state, PreviewCallbacks callbacks) {
         this.previewState = state;
         this.previewCallbacks = callbacks;
+        this.previewTreeState = new TreeState();
         blockOnScreen(ScreenType.PREVIEW);
     }
 
@@ -419,13 +424,15 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             completeScreen();
             return true;
         }
-        // ↑/↓ → select file in tree
+        // ↑/↓ → navigate tree
         if (ke.isUp()) {
-            previewState = previewState.selectPrevious();
+            previewTreeState.selectPrevious();
+            syncSelectedFileFromTree();
             return true;
         }
         if (ke.isDown()) {
-            previewState = previewState.selectNext();
+            previewTreeState.selectNext(previewState.files().size() + countEntities() - 1);
+            syncSelectedFileFromTree();
             return true;
         }
         // j/k → scroll code preview (vim-style)
@@ -451,6 +458,52 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Count unique entity names for tree node calculation.
+     */
+    private int countEntities() {
+        return (int) previewState.files().stream()
+            .map(f -> f.entityName())
+            .distinct()
+            .count();
+    }
+
+    /**
+     * Sync selectedFileIndex from the tree state selection.
+     * Tree flat entries include entity group nodes (non-leaf) and file nodes (leaf).
+     * We map the tree selection index to the corresponding file index.
+     */
+    private void syncSelectedFileFromTree() {
+        int treeIndex = previewTreeState.selected();
+        // The tree is flattened as: [entity1, file1, file2, ..., entity2, file3, ...]
+        // Entity nodes don't correspond to files, so we need to map.
+        int fileIndex = -1;
+        int flatIndex = 0;
+        int entityCount = 0;
+        String currentEntity = "";
+        for (int i = 0; i < previewState.files().size(); i++) {
+            String entity = previewState.files().get(i).entityName();
+            if (!entity.equals(currentEntity)) {
+                if (flatIndex == treeIndex) {
+                    // Selected an entity group node — show first file of this group
+                    previewState = previewState.withSelectedFileIndex(i);
+                    return;
+                }
+                currentEntity = entity;
+                flatIndex++;
+                entityCount++;
+            }
+            if (flatIndex == treeIndex) {
+                fileIndex = i;
+                break;
+            }
+            flatIndex++;
+        }
+        if (fileIndex >= 0) {
+            previewState = previewState.withSelectedFileIndex(fileIndex);
+        }
     }
 
     // ── Summary (S6) ─────────────────────────────────────────────────
@@ -510,7 +563,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             }
             case PREVIEW -> {
                 if (previewState != null) {
-                    PreviewScreen.render(frame, area, previewState);
+                    PreviewScreen.render(frame, area, previewState, previewTreeState);
                 }
             }
             case PROGRESS -> {

@@ -38,20 +38,29 @@ public final class SummaryScreen {
             )
             .split(area);
 
-        renderHeader(frame, layout.get(0));
+        renderHeader(frame, layout.get(0), report);
         renderStats(frame, layout.get(1), report);
         renderFileTree(frame, layout.get(2), report);
         renderFooter(frame, layout.get(3));
     }
 
-    private static void renderHeader(Frame frame, Rect area) {
+    private static void renderHeader(Frame frame, Rect area, GenerationReport report) {
+        boolean hasErrors = report.errorFiles() > 0;
+
         Block header = Block.builder()
             .borders(Borders.ALL)
             .borderType(BorderType.ROUNDED)
-            .borderStyle(Style.EMPTY.fg(Color.GREEN))
+            .borderStyle(Style.EMPTY.fg(hasErrors ? Color.YELLOW : Color.GREEN))
             .title(Title.from(Line.from(
-                Span.raw(" SpringForge ").bold().cyan(),
-                Span.raw("— Generation Complete ").bold().green()
+                Span.raw(" \uD83C\uDF89 SpringForge ").bold().cyan(),
+                hasErrors
+                    ? Span.raw("\u2014 Generation Complete (with warnings) ").bold().yellow()
+                    : Span.raw("\u2014 Generation Complete! ").bold().green()
+            )))
+            .titleBottom(Title.from(Line.from(
+                Span.raw(" \u23F1 Duration: ").dim(),
+                Span.raw(report.duration().toMillis() + "ms").cyan(),
+                Span.raw(" ")
             )))
             .build();
 
@@ -62,26 +71,22 @@ public final class SummaryScreen {
         Text stats = Text.from(
             Line.from(Span.raw("")),
             Line.from(
-                Span.raw("  Total files:   ").bold(),
+                Span.raw("  \uD83D\uDCCA Total files:   ").bold(),
                 Span.raw(String.valueOf(report.totalFiles())).cyan()
             ),
             Line.from(
-                Span.raw("  Created:       ").bold(),
+                Span.raw("  \u2705 Created:       ").bold(),
                 Span.raw(String.valueOf(report.createdFiles())).green()
             ),
             Line.from(
-                Span.raw("  Skipped:       ").bold(),
+                Span.raw("  \u23ED Skipped:       ").bold(),
                 Span.raw(String.valueOf(report.skippedFiles())).yellow()
             ),
             Line.from(
-                Span.raw("  Errors:        ").bold(),
+                Span.raw("  \u274C Errors:        ").bold(),
                 report.errorFiles() > 0
                     ? Span.raw(String.valueOf(report.errorFiles())).red()
                     : Span.raw(String.valueOf(report.errorFiles())).green()
-            ),
-            Line.from(
-                Span.raw("  Duration:      ").bold(),
-                Span.raw(report.duration().toMillis() + "ms").dim()
             )
         );
 
@@ -91,7 +96,9 @@ public final class SummaryScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.CYAN))
-                .title("Summary")
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCCB Summary ").bold()
+                )))
                 .build())
             .build();
 
@@ -103,9 +110,9 @@ public final class SummaryScreen {
 
         for (FileGenerationResult result : report.results()) {
             Span icon = switch (result.status()) {
-                case CREATED -> Span.raw("  [OK]   ").green();
-                case SKIPPED -> Span.raw("  [SKIP] ").yellow();
-                case ERROR -> Span.raw("  [ERR]  ").red();
+                case CREATED -> Span.raw("  \u2705 ").green();
+                case SKIPPED -> Span.raw("  \u23ED ").yellow();
+                case ERROR -> Span.raw("  \u274C ").red();
             };
 
             Span path = Span.raw(result.filePath()).white();
@@ -113,9 +120,13 @@ public final class SummaryScreen {
             spans.add(icon);
             spans.add(path);
             if (result.message() != null && !result.message().isEmpty()) {
-                spans.add(Span.raw(" — " + result.message()).dim());
+                spans.add(Span.raw(" \u2014 " + result.message()).dim());
             }
             lines.add(Line.from(spans.toArray(Span[]::new)));
+        }
+
+        if (lines.isEmpty()) {
+            lines.add(Line.from(Span.raw("  No files generated").dim()));
         }
 
         Paragraph tree = Paragraph.builder()
@@ -124,7 +135,9 @@ public final class SummaryScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
-                .title("Output Files")
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCC2 Output Files ").bold()
+                )))
                 .build())
             .build();
 
@@ -132,15 +145,23 @@ public final class SummaryScreen {
     }
 
     private static void renderFooter(Frame frame, Rect area) {
-        Line footer = Line.from(
-            Span.raw("[q]").bold().yellow(),
-            Span.raw(" Quit  ").dim(),
-            Span.raw("[g]").bold().yellow(),
-            Span.raw(" Generate more").dim()
+        List<Rect> footerLayout = Layout.horizontal()
+            .constraints(
+                Constraint.fill(),
+                Constraint.length(22)
+            )
+            .split(area);
+
+        // Left: action keys
+        Line leftLine = Line.from(
+            Span.raw(" [g]").bold().yellow(),
+            Span.raw(" Generate more ").dim(),
+            Span.raw("[\u21E7Tab]").bold().yellow(),
+            Span.raw(" Back").dim()
         );
 
-        Paragraph footerWidget = Paragraph.builder()
-            .text(Text.from(footer))
+        Paragraph leftFooter = Paragraph.builder()
+            .text(Text.from(leftLine))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
@@ -148,6 +169,23 @@ public final class SummaryScreen {
                 .build())
             .build();
 
-        frame.renderWidget(footerWidget, area);
+        frame.renderWidget(leftFooter, footerLayout.get(0));
+
+        // Right: quit
+        Line rightLine = Line.from(
+            Span.raw(" [q]").bold().yellow(),
+            Span.raw(" Quit \u274C").dim()
+        );
+
+        Paragraph rightFooter = Paragraph.builder()
+            .text(Text.from(rightLine))
+            .block(Block.builder()
+                .borders(Borders.ALL)
+                .borderType(BorderType.ROUNDED)
+                .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
+                .build())
+            .build();
+
+        frame.renderWidget(rightFooter, footerLayout.get(1));
     }
 }

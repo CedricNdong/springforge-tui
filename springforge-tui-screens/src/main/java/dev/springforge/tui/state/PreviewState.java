@@ -37,6 +37,10 @@ public record PreviewState(
         return new PreviewState(files, selectedFileIndex, scrollOffset + 1);
     }
 
+    public PreviewState withSelectedFileIndex(int index) {
+        return new PreviewState(files, index, 0);
+    }
+
     public GeneratedFile selectedFile() {
         if (files.isEmpty() || selectedFileIndex >= files.size()) return null;
         return files.get(selectedFileIndex);

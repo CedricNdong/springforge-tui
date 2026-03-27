@@ -36,7 +36,8 @@ public final class ProgressScreen {
                 Constraint.length(3),
                 Constraint.length(3),
                 Constraint.length(3),
-                Constraint.fill()
+                Constraint.fill(),
+                Constraint.length(3)
             )
             .split(area);
 
@@ -44,23 +45,38 @@ public final class ProgressScreen {
         renderProgressBar(frame, layout.get(1), state);
         renderCurrentFile(frame, layout.get(2), state);
         renderFileLog(frame, layout.get(3), state);
+        renderFooter(frame, layout.get(4), state);
     }
 
     private static void renderHeader(Frame frame, Rect area,
             GenerationProgressState state) {
-        String status = switch (state.overallStatus()) {
-            case IN_PROGRESS -> "Generating...";
-            case DONE -> "Complete!";
-            case ERROR -> "Completed with errors";
-        };
+        String statusIcon;
+        String statusText;
+        switch (state.overallStatus()) {
+            case IN_PROGRESS -> { statusIcon = "\u2699"; statusText = "Generating..."; }
+            case DONE -> { statusIcon = "\u2705"; statusText = "Complete!"; }
+            case ERROR -> { statusIcon = "\u26A0"; statusText = "Completed with errors"; }
+            default -> { statusIcon = "\u2699"; statusText = "Generating..."; }
+        }
 
         Block header = Block.builder()
             .borders(Borders.ALL)
             .borderType(BorderType.ROUNDED)
             .borderStyle(Style.EMPTY.fg(Color.CYAN))
             .title(Title.from(Line.from(
-                Span.raw(" SpringForge ").bold().cyan(),
-                Span.raw("— " + status + " ").white()
+                Span.raw(" " + statusIcon + " SpringForge ").bold().cyan(),
+                Span.raw("\u2014 " + statusText + " ").white()
+            )))
+            .titleBottom(Title.from(Line.from(
+                Span.raw(" \uD83D\uDCE6 ").dim(),
+                Span.raw(String.valueOf(state.completedFiles())).green(),
+                Span.raw(" created ").dim(),
+                Span.raw("| \u23ED ").dim(),
+                Span.raw(String.valueOf(state.skippedFiles())).yellow(),
+                Span.raw(" skipped ").dim(),
+                Span.raw("| \u274C ").dim(),
+                Span.raw(String.valueOf(state.errorFiles())).red(),
+                Span.raw(" errors ").dim()
             )))
             .build();
 
@@ -82,6 +98,9 @@ public final class ProgressScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCCA Progress ").bold()
+                )))
                 .build())
             .gaugeStyle(Style.EMPTY.fg(Color.GREEN))
             .ratio(ratio)
@@ -97,15 +116,19 @@ public final class ProgressScreen {
         if (state.overallStatus() == GenerationProgressState.OverallStatus.IN_PROGRESS
                 && !state.currentFile().isEmpty()) {
             line = Line.from(
-                Span.raw("  Current: ").bold(),
+                Span.raw("  \uD83D\uDD27 Current: ").bold(),
                 Span.raw(state.currentFile()).cyan()
             );
         } else if (state.overallStatus() == GenerationProgressState.OverallStatus.DONE) {
             line = Line.from(
-                Span.raw("  All files generated successfully").green()
+                Span.raw("  \u2705 All files generated successfully").green()
+            );
+        } else if (state.overallStatus() == GenerationProgressState.OverallStatus.ERROR) {
+            line = Line.from(
+                Span.raw("  \u26A0 Generation completed with errors").red()
             );
         } else {
-            line = Line.from(Span.raw("  Waiting...").dim());
+            line = Line.from(Span.raw("  \u23F3 Waiting...").dim());
         }
 
         Paragraph current = Paragraph.builder()
@@ -126,9 +149,9 @@ public final class ProgressScreen {
 
         for (FileGenerationResult result : state.log()) {
             Span icon = switch (result.status()) {
-                case CREATED -> Span.raw("  [OK]   ").green();
-                case SKIPPED -> Span.raw("  [SKIP] ").yellow();
-                case ERROR -> Span.raw("  [ERR]  ").red();
+                case CREATED -> Span.raw("  \u2705 ").green();
+                case SKIPPED -> Span.raw("  \u23ED ").yellow();
+                case ERROR -> Span.raw("  \u274C ").red();
             };
 
             Span path = Span.raw(result.filePath()).white();
@@ -137,13 +160,13 @@ public final class ProgressScreen {
             spans.add(path);
 
             if (result.message() != null && !result.message().isEmpty()) {
-                spans.add(Span.raw(" — " + result.message()).dim());
+                spans.add(Span.raw(" \u2014 " + result.message()).dim());
             }
             lines.add(Line.from(spans.toArray(Span[]::new)));
         }
 
         if (lines.isEmpty()) {
-            lines.add(Line.from(Span.raw("  No files processed yet").dim()));
+            lines.add(Line.from(Span.raw("  \u23F3 No files processed yet").dim()));
         }
 
         Paragraph log = Paragraph.builder()
@@ -152,10 +175,47 @@ public final class ProgressScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
-                .title("Generation Log")
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCDD Generation Log ").bold()
+                )))
                 .build())
             .build();
 
         frame.renderWidget(log, area);
+    }
+
+    private static void renderFooter(Frame frame, Rect area,
+            GenerationProgressState state) {
+        Line footer;
+        if (state.overallStatus() == GenerationProgressState.OverallStatus.DONE) {
+            footer = Line.from(
+                Span.raw(" [Enter]").bold().yellow(),
+                Span.raw(" View Summary ").dim(),
+                Span.raw("[q]").bold().yellow(),
+                Span.raw(" Quit \u274C").dim()
+            );
+        } else if (state.overallStatus() == GenerationProgressState.OverallStatus.ERROR) {
+            footer = Line.from(
+                Span.raw(" [Enter]").bold().yellow(),
+                Span.raw(" View Summary ").dim(),
+                Span.raw("[q]").bold().yellow(),
+                Span.raw(" Quit \u274C").dim()
+            );
+        } else {
+            footer = Line.from(
+                Span.raw(" \u23F3 Generation in progress...").dim()
+            );
+        }
+
+        Paragraph footerWidget = Paragraph.builder()
+            .text(Text.from(footer))
+            .block(Block.builder()
+                .borders(Borders.ALL)
+                .borderType(BorderType.ROUNDED)
+                .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
+                .build())
+            .build();
+
+        frame.renderWidget(footerWidget, area);
     }
 }
