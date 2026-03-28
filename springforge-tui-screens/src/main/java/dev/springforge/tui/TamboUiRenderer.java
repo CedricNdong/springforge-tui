@@ -5,9 +5,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import dev.springforge.engine.model.GenerationReport;
 import dev.springforge.engine.model.Layer;
-import dev.springforge.engine.model.ConflictStrategy;
-import dev.springforge.engine.model.MapperLib;
-import dev.springforge.engine.model.SpringVersion;
 import dev.springforge.tui.screens.EntitySelectionScreen;
 import dev.springforge.tui.screens.ErrorScreen;
 import dev.springforge.tui.screens.LayerConfigScreen;
@@ -348,13 +345,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             completeScreen();
             return true;
         }
-        // Enter → confirm config
-        if (ke.isConfirm()) {
-            layerCallbacks.onConfirm(layerConfigState);
-            completeScreen();
-            return true;
-        }
-        // ↑/↓ Navigation
+        // ↑/↓ Navigation (within active panel)
         if (ke.isUp()) {
             layerConfigState = layerConfigState.moveFocusUp();
             return true;
@@ -363,36 +354,29 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             layerConfigState = layerConfigState.moveFocusDown();
             return true;
         }
-        // Space → toggle focused layer
-        if (ke.isSelect()) {
-            int idx = layerConfigState.focusedIndex();
-            Layer[] layers = Layer.values();
-            if (idx < layers.length) {
-                layerConfigState = layerConfigState.toggleLayer(layers[idx]);
-            }
-            return true;
-        }
-        // Option shortcuts
+        // [1] Switch to Layers panel
         if (ke.isChar('1')) {
-            layerConfigState = layerConfigState.withSpringVersion(SpringVersion.V3);
+            layerConfigState = layerConfigState.withActivePanel(
+                LayerConfigState.ActivePanel.LAYERS);
             return true;
         }
+        // [2] Switch to Options panel
         if (ke.isChar('2')) {
-            layerConfigState = layerConfigState.withSpringVersion(SpringVersion.V2);
+            layerConfigState = layerConfigState.withActivePanel(
+                LayerConfigState.ActivePanel.OPTIONS);
             return true;
         }
-        if (ke.isCharIgnoreCase('m')) {
-            MapperLib current = layerConfigState.mapperLib();
-            MapperLib next = current == MapperLib.MAPSTRUCT
-                ? MapperLib.MODEL_MAPPER : MapperLib.MAPSTRUCT;
-            layerConfigState = layerConfigState.withMapperLib(next);
-            return true;
-        }
-        if (ke.isCharIgnoreCase('o')) {
-            ConflictStrategy current = layerConfigState.conflictStrategy();
-            ConflictStrategy next = current == ConflictStrategy.SKIP
-                ? ConflictStrategy.OVERWRITE : ConflictStrategy.SKIP;
-            layerConfigState = layerConfigState.withConflictStrategy(next);
+        // Space or Enter → toggle in active panel
+        if (ke.isSelect() || ke.isConfirm()) {
+            if (layerConfigState.activePanel() == LayerConfigState.ActivePanel.LAYERS) {
+                int idx = layerConfigState.focusedIndex();
+                Layer[] layers = Layer.values();
+                if (idx < layers.length) {
+                    layerConfigState = layerConfigState.toggleLayer(layers[idx]);
+                }
+            } else {
+                layerConfigState = layerConfigState.toggleFocusedOption();
+            }
             return true;
         }
         return false;
@@ -596,6 +580,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     private void completeScreen() {
+        // Set screen to NONE immediately to prevent queued key events
+        // from leaking into the next screen during transition.
+        currentScreen = ScreenType.NONE;
         CountDownLatch latch = screenLatch.get();
         if (latch != null) {
             latch.countDown();
