@@ -99,7 +99,7 @@ public final class SummaryScreen {
                     Span.raw(" \u23F1 Duration: ").dim(),
                     Span.raw(report.duration().toMillis() + "ms").cyan(),
                     Span.raw(" ")
-                )))
+                )).right())
                 .build())
             .build();
 

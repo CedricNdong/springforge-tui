@@ -101,31 +101,17 @@ public final class ProgressScreen {
 
     private static void renderCurrentFile(Frame frame, Rect area,
             GenerationProgressState state) {
-        Line line;
-        if (state.overallStatus() == GenerationProgressState.OverallStatus.IN_PROGRESS
-                && !state.currentFile().isEmpty()) {
-            line = Line.from(
-                Span.raw("  \uD83D\uDD27 Current: ").bold(),
-                Span.raw(state.currentFile()).cyan()
-            );
-        } else if (state.overallStatus() == GenerationProgressState.OverallStatus.DONE) {
-            line = Line.from(
-                Span.raw("  \u2705 All files generated successfully").green()
-            );
-        } else if (state.overallStatus() == GenerationProgressState.OverallStatus.ERROR) {
-            line = Line.from(
-                Span.raw("  \u26A0 Generation completed with errors").red()
-            );
-        } else {
-            line = Line.from(Span.raw("  \u23F3 Waiting...").dim());
-        }
+        String fileText = state.currentFile().isEmpty() ? "" : state.currentFile();
 
         Paragraph current = Paragraph.builder()
-            .text(Text.from(line))
+            .text(Text.from(Line.from(Span.raw("  " + fileText).cyan())))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDD27 Current ").bold()
+                )))
                 .build())
             .build();
 
