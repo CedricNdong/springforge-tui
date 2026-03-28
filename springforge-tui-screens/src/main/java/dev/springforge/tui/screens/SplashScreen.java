@@ -53,7 +53,9 @@ public final class SplashScreen {
             Line.from(Span.raw("  ╚══════╝╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝").cyan(),
                        Span.raw("  TUI").bold().yellow()),
             Line.from(Span.raw("")),
-            Line.from(Span.raw("    \u26A1 From @Entity to full API stack \u2014 in seconds, not hours.").dim().italic())
+            Line.from(Span.raw("    \u26A1 From @Entity to full API stack")
+                .dim().italic(),
+                Span.raw(" \u2014 in seconds, not hours.").dim().italic())
         );
 
         Paragraph paragraph = Paragraph.builder()
@@ -122,7 +124,9 @@ public final class SplashScreen {
                     ? Span.raw(" \uD83D\uDCC4 springforge.yml found").green()
                     : Span.raw(" \uD83D\uDCC4 No springforge.yml").dim()),
                 Line.from(Span.raw("")),
-                Line.from(Span.raw(" \uD83D\uDC49 Press ").dim(), Span.raw("[Tab]").bold().yellow(), Span.raw(" to continue...").dim())
+                Line.from(Span.raw(" \uD83D\uDC49 Press ").dim(),
+                    Span.raw("[Tab]").bold().yellow(),
+                    Span.raw(" to continue...").dim())
             );
         } else if (!state.currentFile().isEmpty()) {
             statusText = Text.from(

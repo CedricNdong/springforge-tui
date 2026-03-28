@@ -99,6 +99,7 @@ public record LayerConfigState(
             case LIQUIBASE -> newLayers.add(Layer.LIQUIBASE);
             case FLYWAY -> newLayers.add(Layer.FLYWAY);
             case NONE -> { /* neither */ }
+            default -> { /* no action */ }
         }
         return new LayerConfigState(newLayers, springVersion, mapperLib,
             conflictStrategy, choice, focusedIndex, optionFocusedIndex,

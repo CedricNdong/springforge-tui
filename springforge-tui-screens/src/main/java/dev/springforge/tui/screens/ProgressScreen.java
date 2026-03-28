@@ -53,10 +53,22 @@ public final class ProgressScreen {
         String statusIcon;
         String statusText;
         switch (state.overallStatus()) {
-            case IN_PROGRESS -> { statusIcon = "\u2699"; statusText = "Generating..."; }
-            case DONE -> { statusIcon = "\u2705"; statusText = "Complete!"; }
-            case ERROR -> { statusIcon = "\u26A0"; statusText = "Completed with errors"; }
-            default -> { statusIcon = "\u2699"; statusText = "Generating..."; }
+            case IN_PROGRESS -> {
+                statusIcon = "\u2699";
+                statusText = "Generating...";
+            }
+            case DONE -> {
+                statusIcon = "\u2705";
+                statusText = "Complete!";
+            }
+            case ERROR -> {
+                statusIcon = "\u26A0";
+                statusText = "Completed with errors";
+            }
+            default -> {
+                statusIcon = "\u2699";
+                statusText = "Generating...";
+            }
         }
 
         Block header = Block.builder()

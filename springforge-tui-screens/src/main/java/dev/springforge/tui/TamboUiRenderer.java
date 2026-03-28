@@ -9,7 +9,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import dev.springforge.engine.model.GeneratedFile;
 import dev.springforge.engine.model.GenerationReport;
-import dev.springforge.engine.model.Layer;
 import dev.springforge.tui.screens.EntitySelectionScreen;
 import dev.springforge.tui.screens.ErrorScreen;
 import dev.springforge.tui.screens.LayerConfigScreen;
