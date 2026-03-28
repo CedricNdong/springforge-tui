@@ -1,5 +1,6 @@
 package dev.springforge.tui.screens;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import dev.springforge.tui.state.ErrorState;
@@ -46,8 +47,8 @@ public final class ErrorScreen {
             .borderType(BorderType.ROUNDED)
             .borderStyle(Style.EMPTY.fg(Color.RED))
             .title(Title.from(Line.from(
-                Span.raw(" SpringForge ").bold().cyan(),
-                Span.raw("— Error ").bold().red()
+                Span.raw(" \u26A0 SpringForge ").bold().cyan(),
+                Span.raw("\u2014 Error ").bold().red()
             )))
             .build();
 
@@ -55,23 +56,27 @@ public final class ErrorScreen {
     }
 
     private static void renderErrorDetails(Frame frame, Rect area, ErrorState state) {
-        var lines = new java.util.ArrayList<Line>();
+        List<Line> lines = new ArrayList<>();
         lines.add(Line.from(Span.raw("")));
         lines.add(Line.from(
-            Span.raw("  Error: ").bold().red(),
+            Span.raw("  \u274C Error: ").bold().red(),
             Span.raw(state.errorMessage()).white()
         ));
 
         if (state.filePath() != null) {
             lines.add(Line.from(Span.raw("")));
             lines.add(Line.from(
-                Span.raw("  File: ").bold(),
+                Span.raw("  \uD83D\uDCC4 File: ").bold(),
                 Span.raw(state.filePath()).yellow()
             ));
         }
 
         lines.add(Line.from(Span.raw("")));
-        lines.add(Line.from(Span.raw("  Please check the error above and choose an action.").dim()));
+        lines.add(Line.from(Span.raw("")));
+        lines.add(Line.from(
+            Span.raw("  \uD83D\uDCA1 ").dim(),
+            Span.raw("Please check the error above and choose an action below.").dim()
+        ));
 
         Paragraph error = Paragraph.builder()
             .text(Text.from(lines.toArray(Line[]::new)))
@@ -79,7 +84,9 @@ public final class ErrorScreen {
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
                 .borderStyle(Style.EMPTY.fg(Color.RED))
-                .title("Error Details")
+                .title(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDD0D Error Details ").bold()
+                )))
                 .build())
             .build();
 
@@ -87,25 +94,30 @@ public final class ErrorScreen {
     }
 
     private static void renderFooter(Frame frame, Rect area, ErrorState state) {
-        Line footer;
+        List<Rect> footerLayout = Layout.horizontal()
+            .constraints(
+                Constraint.fill(),
+                Constraint.length(22)
+            )
+            .split(area);
+
+        // Left: action keys
+        Line leftLine;
         if (state.canRetry()) {
-            footer = Line.from(
-                Span.raw("[R]").bold().yellow(),
-                Span.raw(" Retry  ").dim(),
+            leftLine = Line.from(
+                Span.raw(" [R]").bold().yellow(),
+                Span.raw(" Retry ").dim(),
                 Span.raw("[S]").bold().yellow(),
-                Span.raw(" Skip  ").dim(),
-                Span.raw("[Q]").bold().yellow(),
-                Span.raw(" Quit").dim()
+                Span.raw(" Skip").dim()
             );
         } else {
-            footer = Line.from(
-                Span.raw("[Q]").bold().yellow(),
-                Span.raw(" Quit").dim()
+            leftLine = Line.from(
+                Span.raw(" \u26A0 No actions available").dim()
             );
         }
 
-        Paragraph footerWidget = Paragraph.builder()
-            .text(Text.from(footer))
+        Paragraph leftFooter = Paragraph.builder()
+            .text(Text.from(leftLine))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
@@ -113,6 +125,23 @@ public final class ErrorScreen {
                 .build())
             .build();
 
-        frame.renderWidget(footerWidget, area);
+        frame.renderWidget(leftFooter, footerLayout.get(0));
+
+        // Right: quit
+        Line rightLine = Line.from(
+            Span.raw(" [q]").bold().yellow(),
+            Span.raw(" Quit \u274C").dim()
+        );
+
+        Paragraph rightFooter = Paragraph.builder()
+            .text(Text.from(rightLine))
+            .block(Block.builder()
+                .borders(Borders.ALL)
+                .borderType(BorderType.ROUNDED)
+                .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
+                .build())
+            .build();
+
+        frame.renderWidget(rightFooter, footerLayout.get(1));
     }
 }

@@ -1,11 +1,14 @@
 package dev.springforge.cli;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import dev.springforge.config.ConfigLoader;
 import dev.springforge.config.SpringForgeConfig;
@@ -23,7 +26,13 @@ import dev.springforge.engine.renderer.TemplateRenderer;
 import dev.springforge.engine.scanner.EntityScanner;
 import dev.springforge.engine.writer.CodeFileWriter;
 import dev.springforge.tui.PlainCliRenderer;
+import dev.springforge.tui.TamboUiRenderer;
 import dev.springforge.tui.TuiRenderer;
+import dev.springforge.tui.state.EntitySelectionState;
+import dev.springforge.tui.state.GenerationProgressState;
+import dev.springforge.tui.state.LayerConfigState;
+import dev.springforge.tui.state.PreviewState;
+import dev.springforge.tui.state.SplashState;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,40 +147,10 @@ public class GenerateCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            SpringForgeConfig yamlConfig = loadConfig();
-            GenerationConfig config = buildGenerationConfig(yamlConfig);
-
-            if (config.entities().isEmpty()) {
-                LOG.error("No @Entity classes found");
-                System.err.println("Error: No @Entity classes found");
-                return ExitCodes.ENTITY_PARSE_ERROR;
+            if (shouldUseTui()) {
+                return runInteractiveTui();
             }
-
-            if (config.verbose()) {
-                LOG.info("Generating {} layers for {} entities",
-                    config.layers().size(), config.entities().size());
-            }
-
-            TemplateRenderer renderer = new TemplateRenderer();
-            BatchGenerator batchGenerator = new BatchGenerator(renderer);
-            List<GeneratedFile> generatedFiles = batchGenerator.generateAll(config);
-
-            if (config.dryRun()) {
-                printDryRun(generatedFiles);
-                return ExitCodes.SUCCESS;
-            }
-
-            CodeFileWriter writer = new CodeFileWriter();
-            GenerationReport report = writer.writeAll(
-                generatedFiles, config.conflictStrategy(), config.outputBasePath());
-
-            TuiRenderer tuiRenderer = new PlainCliRenderer();
-            tuiRenderer.showSummary(report);
-
-            return report.errorFiles() > 0
-                ? ExitCodes.FILE_WRITE_ERROR
-                : ExitCodes.SUCCESS;
-
+            return runNonInteractive();
         } catch (ConfigLoader.ConfigLoadException e) {
             LOG.error("Configuration error: {}", e.getMessage());
             System.err.println("Error: " + e.getMessage());
@@ -187,12 +166,369 @@ public class GenerateCommand implements Callable<Integer> {
         }
     }
 
+    /**
+     * Determines whether to use the interactive TUI.
+     * TUI is used when: no --no-tui flag, not a dumb terminal,
+     * and no explicit layer flags are provided (user wants to choose interactively).
+     */
+    boolean shouldUseTui() {
+        boolean noTui = parent != null && parent.isNoTui();
+        if (noTui || PlainCliRenderer.isDumbTerminal()) {
+            return false;
+        }
+        // If user provided explicit layer flags, skip TUI
+        boolean hasLayerFlags = allLayers || dto || mapper || repository
+            || service || controller || migration || openapi || upload;
+        return !hasLayerFlags && !dryRun;
+    }
+
+    /**
+     * Non-interactive CLI flow: resolve everything from flags/config,
+     * generate, write, show summary.
+     */
+    Integer runNonInteractive()
+            throws ConfigLoader.ConfigLoadException, IOException {
+        SpringForgeConfig yamlConfig = loadConfig();
+        GenerationConfig config = buildGenerationConfig(yamlConfig);
+
+        if (config.entities().isEmpty()) {
+            LOG.error("No @Entity classes found");
+            System.err.println("Error: No @Entity classes found");
+            return ExitCodes.ENTITY_PARSE_ERROR;
+        }
+
+        if (config.verbose()) {
+            LOG.info("Generating {} layers for {} entities",
+                config.layers().size(), config.entities().size());
+        }
+
+        TemplateRenderer renderer = new TemplateRenderer();
+        BatchGenerator batchGenerator = new BatchGenerator(renderer);
+        List<GeneratedFile> generatedFiles = batchGenerator.generateAll(config);
+
+        if (config.dryRun()) {
+            printDryRun(generatedFiles);
+            return ExitCodes.SUCCESS;
+        }
+
+        CodeFileWriter writer = new CodeFileWriter();
+        GenerationReport report = writer.writeAll(
+            generatedFiles, config.conflictStrategy(), config.outputBasePath());
+
+        TuiRenderer tuiRenderer = new PlainCliRenderer();
+        tuiRenderer.showSummary(report, new TuiRenderer.SummaryCallbacks() {
+            @Override public void onGenerateMore() { }
+            @Override public void onQuit() { }
+        });
+
+        return report.errorFiles() > 0
+            ? ExitCodes.FILE_WRITE_ERROR
+            : ExitCodes.SUCCESS;
+    }
+
+    /**
+     * Interactive TUI flow with screen navigation and back support.
+     *
+     * <p>Flow: Splash → Entity Selection → Layer Config → Preview → Write → Summary.
+     * Escape/back returns to the previous screen.
+     */
+    Integer runInteractiveTui()
+            throws ConfigLoader.ConfigLoadException, IOException {
+        SpringForgeConfig yamlConfig = loadConfig();
+
+        // Suppress SLF4J output during TUI mode to avoid corrupting the display
+        suppressLogging();
+
+        try (TamboUiRenderer tui = new TamboUiRenderer()) {
+            // Detect config file
+            boolean configExists = Files.exists(
+                Path.of(System.getProperty("user.dir"), "springforge.yml"));
+
+            // S1: Show splash while scanning entities in background
+            tui.showSplash(SplashState.initial().withConfigFound(configExists));
+
+            List<EntityDescriptor> allEntities = scanWithSplash(tui, configExists);
+
+            if (allEntities.isEmpty()) {
+                tui.showSplash(SplashState.initial()
+                    .withConfigFound(configExists)
+                    .withError("No @Entity classes found. "
+                        + "Press any key to exit."));
+                tui.waitForKeyOnSplash();
+                return ExitCodes.ENTITY_PARSE_ERROR;
+            }
+
+            // Show completed splash and wait for user to press any key
+            tui.showSplash(SplashState.initial()
+                .withConfigFound(configExists)
+                .withComplete(allEntities.size()));
+            tui.waitForKeyOnSplash();
+
+            // Flow state
+            AtomicReference<List<EntityDescriptor>> selectedEntities = new AtomicReference<>();
+            AtomicReference<LayerConfigState> layerConfig = new AtomicReference<>();
+            AtomicReference<List<GeneratedFile>> generatedFiles = new AtomicReference<>();
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+
+            TuiFlowStep step = TuiFlowStep.ENTITY_SELECTION;
+
+            while (step != TuiFlowStep.DONE) {
+                switch (step) {
+                    case ENTITY_SELECTION -> {
+                        step = runEntitySelection(tui, allEntities,
+                            selectedEntities, cancelled);
+                    }
+                    case LAYER_CONFIG -> {
+                        step = runLayerConfig(tui,
+                            selectedEntities.get().size(), layerConfig);
+                    }
+                    case PREVIEW -> {
+                        step = runPreview(tui, yamlConfig,
+                            selectedEntities.get(), layerConfig.get(),
+                            generatedFiles);
+                    }
+                    case WRITE -> {
+                        step = runWrite(tui, yamlConfig,
+                            selectedEntities.get(), layerConfig.get(),
+                            generatedFiles.get());
+                    }
+                    default -> step = TuiFlowStep.DONE;
+                }
+            }
+
+            if (cancelled.get()) {
+                return ExitCodes.SUCCESS;
+            }
+        } finally {
+            restoreLogging();
+        }
+
+        return ExitCodes.SUCCESS;
+    }
+
+    /**
+     * Suppress SLF4J Simple logger output during TUI mode.
+     * SLF4J Simple writes to stderr which corrupts the TamboUI alt-screen.
+     * We redirect stderr to a no-op stream while the TUI is active.
+     */
+    private java.io.PrintStream originalStderr;
+
+    private void suppressLogging() {
+        originalStderr = System.err;
+        System.setErr(new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));
+    }
+
+    private void restoreLogging() {
+        if (originalStderr != null) {
+            System.setErr(originalStderr);
+        }
+    }
+
+    /**
+     * Scans for entity files while updating the splash progress bar.
+     * Discovers files first, then parses them one by one with progress updates.
+     */
+    private List<EntityDescriptor> scanWithSplash(TamboUiRenderer tui,
+            boolean configExists) throws IOException {
+        // Discover entity file paths
+        List<Path> filesToParse = new ArrayList<>();
+
+        if (entityFile != null) {
+            filesToParse.add(entityFile);
+        } else if (entityFiles != null && !entityFiles.isEmpty()) {
+            filesToParse.addAll(entityFiles);
+        } else if (scanDir != null) {
+            EntityScanner scanner = new EntityScanner();
+            filesToParse.addAll(scanner.scanForEntityFiles(scanDir));
+        } else {
+            EntityScanner scanner = new EntityScanner();
+            Path srcDir = Path.of(System.getProperty("user.dir"), "src/main/java");
+            filesToParse.addAll(scanner.scanForEntityFiles(srcDir));
+        }
+
+        discoveredEntityFiles = List.copyOf(filesToParse);
+
+        // Parse each file with splash progress updates
+        JavaAstEntityParser parser = new JavaAstEntityParser();
+        List<EntityDescriptor> entities = new ArrayList<>();
+        int total = filesToParse.size();
+
+        for (int i = 0; i < total; i++) {
+            Path file = filesToParse.get(i);
+            tui.showSplash(new SplashState(
+                total, i, file.getFileName().toString(), false, null, configExists));
+
+            try {
+                entities.add(parser.parse(file));
+            } catch (Exception e) {
+                // skip unparseable files
+            }
+        }
+
+        if (entities.size() > 1) {
+            entities = parser.resolveCircularRefs(entities);
+        }
+
+        return entities;
+    }
+
+    private TuiFlowStep runEntitySelection(TamboUiRenderer tui,
+            List<EntityDescriptor> allEntities,
+            AtomicReference<List<EntityDescriptor>> selectedOut,
+            AtomicBoolean cancelledOut) {
+
+        EntitySelectionState state = EntitySelectionState.initial(allEntities);
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>();
+
+        tui.showEntitySelection(state, new TuiRenderer.EntitySelectionCallbacks() {
+            @Override
+            public void onConfirm(List<EntityDescriptor> selected) {
+                selectedOut.set(selected);
+                nextStep.set(TuiFlowStep.LAYER_CONFIG);
+            }
+
+            @Override
+            public void onCancel() {
+                cancelledOut.set(true);
+                nextStep.set(TuiFlowStep.DONE);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    private TuiFlowStep runLayerConfig(TamboUiRenderer tui, int entityCount,
+            AtomicReference<LayerConfigState> configOut) {
+
+        LayerConfigState state = LayerConfigState.initial(entityCount);
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>();
+
+        tui.showLayerConfig(state, new TuiRenderer.LayerConfigCallbacks() {
+            @Override
+            public void onConfirm(LayerConfigState config) {
+                configOut.set(config);
+                nextStep.set(TuiFlowStep.PREVIEW);
+            }
+
+            @Override
+            public void onBack() {
+                nextStep.set(TuiFlowStep.ENTITY_SELECTION);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    private TuiFlowStep runPreview(TamboUiRenderer tui, SpringForgeConfig yamlConfig,
+            List<EntityDescriptor> entities, LayerConfigState layerConfig,
+            AtomicReference<List<GeneratedFile>> filesOut) {
+
+        Path basePath = resolveOutputPath(entities);
+        String basePackage = resolveBasePackage(yamlConfig, entities);
+        boolean verbose = parent != null && parent.isVerbose();
+
+        GenerationConfig config = new GenerationConfig(
+            entities, layerConfig.selectedLayers(),
+            layerConfig.springVersion(), layerConfig.mapperLib(),
+            layerConfig.conflictStrategy(), basePath, basePackage,
+            false, verbose
+        );
+
+        TemplateRenderer renderer = new TemplateRenderer();
+        BatchGenerator batchGenerator = new BatchGenerator(renderer);
+        List<GeneratedFile> files = batchGenerator.generateAll(config);
+        filesOut.set(files);
+
+        PreviewState state = PreviewState.initial(files);
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>();
+
+        tui.showPreview(state, new TuiRenderer.PreviewCallbacks() {
+            @Override
+            public void onConfirm() {
+                nextStep.set(TuiFlowStep.WRITE);
+            }
+
+            @Override
+            public void onBack() {
+                nextStep.set(TuiFlowStep.LAYER_CONFIG);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    private TuiFlowStep runWrite(TamboUiRenderer tui, SpringForgeConfig yamlConfig,
+            List<EntityDescriptor> entities, LayerConfigState layerConfig,
+            List<GeneratedFile> files) {
+
+        Path basePath = resolveOutputPath(entities);
+
+        // Write files one by one, updating progress after each
+        CodeFileWriter writer = new CodeFileWriter();
+        GenerationProgressState progressState =
+            GenerationProgressState.initial(files.size());
+        tui.showProgress(progressState);
+
+        java.time.Instant start = java.time.Instant.now();
+        List<dev.springforge.engine.model.FileGenerationResult> results = new ArrayList<>();
+        int created = 0;
+        int skipped = 0;
+        int errors = 0;
+
+        for (GeneratedFile file : files) {
+            progressState = progressState.withCurrentFile(
+                file.outputPath().getFileName().toString());
+            tui.showProgress(progressState);
+            sleep(80);
+
+            var result = writer.writeSingle(file, layerConfig.conflictStrategy(), basePath);
+            results.add(result);
+            switch (result.status()) {
+                case CREATED -> created++;
+                case SKIPPED -> skipped++;
+                case ERROR -> errors++;
+                default -> { }
+            }
+
+            progressState = progressState.withFileResult(result);
+            tui.showProgress(progressState);
+            sleep(40);
+        }
+
+        java.time.Duration duration = java.time.Duration.between(start, java.time.Instant.now());
+        GenerationReport report = new GenerationReport(
+            files.size(), created, skipped, errors, results, duration);
+
+        // Show summary — blocks until user chooses
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>(TuiFlowStep.DONE);
+        tui.showSummary(report, new TuiRenderer.SummaryCallbacks() {
+            @Override
+            public void onGenerateMore() {
+                nextStep.set(TuiFlowStep.ENTITY_SELECTION);
+            }
+
+            @Override
+            public void onQuit() {
+                nextStep.set(TuiFlowStep.DONE);
+            }
+        });
+
+        return nextStep.get();
+    }
+
+    enum TuiFlowStep {
+        ENTITY_SELECTION, LAYER_CONFIG, PREVIEW, WRITE, DONE
+    }
+
     SpringForgeConfig loadConfig() throws ConfigLoader.ConfigLoadException {
         ConfigLoader configLoader = new ConfigLoader();
         Path configPath = parent != null ? parent.getConfigPath() : null;
         Path projectRoot = Path.of(System.getProperty("user.dir"));
         return configLoader.load(configPath, projectRoot);
     }
+
+    /** Entity file paths discovered during scanning — used to infer source root. */
+    private List<Path> discoveredEntityFiles = List.of();
 
     GenerationConfig buildGenerationConfig(SpringForgeConfig yamlConfig)
             throws IOException {
@@ -201,8 +537,8 @@ public class GenerateCommand implements Callable<Integer> {
         SpringVersion springVersion = resolveSpringVersion(yamlConfig);
         MapperLib mapperLib = resolveMapperLib(yamlConfig);
         ConflictStrategy conflictStrategy = resolveConflictStrategy(yamlConfig);
-        Path basePath = resolveOutputPath();
-        String basePackage = yamlConfig.getProject().getBasePackage();
+        Path basePath = resolveOutputPath(entities);
+        String basePackage = resolveBasePackage(yamlConfig, entities);
         boolean verbose = parent != null && parent.isVerbose();
 
         return new GenerationConfig(
@@ -221,11 +557,14 @@ public class GenerateCommand implements Callable<Integer> {
         } else if (scanDir != null) {
             EntityScanner scanner = new EntityScanner();
             filesToParse.addAll(scanner.scanForEntityFiles(scanDir));
-        } else if (allEntities) {
+        } else {
+            // Default: auto-scan src/main/java (same as --all-entities)
             EntityScanner scanner = new EntityScanner();
             Path srcDir = Path.of(System.getProperty("user.dir"), "src/main/java");
             filesToParse.addAll(scanner.scanForEntityFiles(srcDir));
         }
+
+        discoveredEntityFiles = List.copyOf(filesToParse);
 
         JavaAstEntityParser parser = new JavaAstEntityParser();
         List<EntityDescriptor> entities = new ArrayList<>();
@@ -320,11 +659,107 @@ public class GenerateCommand implements Callable<Integer> {
             : ConflictStrategy.SKIP;
     }
 
-    Path resolveOutputPath() {
+    /**
+     * Resolves the output base directory.
+     *
+     * <ol>
+     *   <li>If {@code --output} flag is given, use it directly.</li>
+     *   <li>Otherwise, infer the source root from the first entity file path
+     *       by stripping the package suffix
+     *       (e.g. {@code src/main/java/de/foo/model/User.java}
+     *       with package {@code de.foo.model} → {@code src/main/java}).</li>
+     *   <li>If inference fails, warn the user and prompt interactively
+     *       (or fall back to {@code src/main/java} in non-interactive mode).</li>
+     * </ol>
+     */
+    Path resolveOutputPath(List<EntityDescriptor> entities) {
         if (outputPath != null) {
             return outputPath;
         }
-        return Path.of(System.getProperty("user.dir"));
+
+        Path inferred = inferSourceRoot(entities);
+        if (inferred != null) {
+            return inferred;
+        }
+
+        return promptForOutputPath();
+    }
+
+    private Path inferSourceRoot(List<EntityDescriptor> entities) {
+        if (discoveredEntityFiles.isEmpty() || entities.isEmpty()) {
+            return null;
+        }
+        Path firstFile = discoveredEntityFiles.get(0).toAbsolutePath().normalize();
+        String packagePath = entities.get(0).packageName().replace('.', '/');
+        String suffix = packagePath + "/" + entities.get(0).className() + ".java";
+        String filePath = firstFile.toString();
+        if (filePath.endsWith(suffix)) {
+            return Path.of(filePath.substring(0,
+                filePath.length() - suffix.length() - 1));
+        }
+        return null;
+    }
+
+    private Path promptForOutputPath() {
+        Path fallback = Path.of(System.getProperty("user.dir"), "src/main/java");
+        java.io.Console console = System.console();
+
+        if (console == null) {
+            LOG.warn("Could not auto-detect source root. "
+                + "Using fallback: {}. Use --output to override.", fallback);
+            return fallback;
+        }
+
+        System.err.println();
+        System.err.println("Warning: Could not auto-detect the source root directory.");
+        System.err.println("Without a springforge.yml or --output flag, generated files");
+        System.err.println("may not be placed in the correct location.");
+        System.err.println();
+        System.err.println("Options:");
+        System.err.println("  [1] Continue with default: " + fallback);
+        System.err.println("  [2] Enter a custom output path");
+        System.err.println("  [3] Abort (run 'springforge init' first)");
+        System.err.println();
+
+        String choice = console.readLine("Choose [1/2/3] (default: 1): ");
+        if (choice == null || choice.isBlank() || "1".equals(choice.trim())) {
+            return fallback;
+        }
+        if ("3".equals(choice.trim())) {
+            System.err.println("Aborted. Run 'springforge init' to create a config file.");
+            throw new RuntimeException("Generation aborted by user");
+        }
+        // Option 2: ask for path
+        String path = console.readLine("Enter output path: ");
+        if (path == null || path.isBlank()) {
+            return fallback;
+        }
+        return Path.of(path.trim());
+    }
+
+    /**
+     * Resolves the base package for generated code. If the user has not
+     * configured a custom base package (i.e., still the default "com.example"),
+     * infer it from the entity package by stripping the trailing ".model"
+     * segment (e.g., "de.thegeekengineer.model" → "de.thegeekengineer").
+     */
+    String resolveBasePackage(SpringForgeConfig yamlConfig,
+                              List<EntityDescriptor> entities) {
+        String configured = yamlConfig.getProject().getBasePackage();
+        if (!"com.example".equals(configured) || entities.isEmpty()) {
+            return configured;
+        }
+        String entityPackage = entities.get(0).packageName();
+        if (entityPackage.endsWith(".model")) {
+            return entityPackage.substring(0, entityPackage.length() - ".model".length());
+        }
+        if (entityPackage.endsWith(".entity")) {
+            return entityPackage.substring(0, entityPackage.length() - ".entity".length());
+        }
+        if (entityPackage.endsWith(".domain")) {
+            return entityPackage.substring(0, entityPackage.length() - ".domain".length());
+        }
+        return entityPackage;
     }
 
     // Package-private setters for PreviewCommand delegation
@@ -336,6 +771,14 @@ public class GenerateCommand implements Callable<Integer> {
     void setMapperLibFlag(String flag) { this.mapperLibFlag = flag; }
     void setDryRun(boolean dryRun) { this.dryRun = dryRun; }
     void setParent(MainCommand parent) { this.parent = parent; }
+
+    private void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     private void printDryRun(List<GeneratedFile> files) {
         System.out.println("=== Dry Run — Files that would be generated ===");

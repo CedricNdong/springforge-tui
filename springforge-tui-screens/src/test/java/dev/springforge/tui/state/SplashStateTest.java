@@ -27,7 +27,7 @@ class SplashStateTest {
     @Test
     @DisplayName("should compute progress percentage")
     void shouldComputeProgress() {
-        SplashState state = new SplashState(10, 5, "User.java", false, null);
+        SplashState state = new SplashState(10, 5, "User.java", false, null, false);
         assertThat(state.progressPercent()).isEqualTo(50);
     }
 
@@ -37,5 +37,26 @@ class SplashStateTest {
         SplashState state = SplashState.initial().withError("Directory not found");
         assertThat(state.errorMessage()).isEqualTo("Directory not found");
         assertThat(state.scanComplete()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should track config found status")
+    void shouldTrackConfigFound() {
+        SplashState state = SplashState.initial();
+        assertThat(state.configFound()).isFalse();
+
+        SplashState withConfig = state.withConfigFound(true);
+        assertThat(withConfig.configFound()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should preserve config found through transitions")
+    void shouldPreserveConfigFoundThroughTransitions() {
+        SplashState state = SplashState.initial()
+            .withConfigFound(true)
+            .withComplete(10);
+
+        assertThat(state.configFound()).isTrue();
+        assertThat(state.scanComplete()).isTrue();
     }
 }

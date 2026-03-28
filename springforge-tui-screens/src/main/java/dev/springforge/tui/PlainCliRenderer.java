@@ -133,7 +133,7 @@ public class PlainCliRenderer implements TuiRenderer {
     }
 
     @Override
-    public void showSummary(GenerationReport report) {
+    public void showSummary(GenerationReport report, SummaryCallbacks callbacks) {
         out.println("=== Generation Summary ===");
         out.println();
         out.println("Total files:   " + report.totalFiles());

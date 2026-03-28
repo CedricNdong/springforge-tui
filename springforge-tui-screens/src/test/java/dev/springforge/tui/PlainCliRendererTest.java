@@ -121,7 +121,7 @@ class PlainCliRendererTest {
             Duration.ofMillis(150)
         );
 
-        renderer.showSummary(report);
+        renderer.showSummary(report, noOpSummaryCallbacks());
 
         assertThat(output()).contains("Generation Summary");
         assertThat(output()).contains("Total files:   3");
@@ -194,6 +194,13 @@ class PlainCliRendererTest {
         return new TuiRenderer.PreviewCallbacks() {
             @Override public void onConfirm() {}
             @Override public void onBack() {}
+        };
+    }
+
+    private TuiRenderer.SummaryCallbacks noOpSummaryCallbacks() {
+        return new TuiRenderer.SummaryCallbacks() {
+            @Override public void onGenerateMore() {}
+            @Override public void onQuit() {}
         };
     }
 }

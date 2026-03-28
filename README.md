@@ -16,71 +16,141 @@ No IntelliJ required. Works on VS Code, Neovim, remote servers, and CI/CD pipeli
 
 ### What it generates
 
-From a single `@Entity` class, SpringForge TUI generates:
+From your `@Entity` classes, SpringForge generates:
 
-- ✅ DTO (Request / Response / Patch)
-- ✅ Mapper (MapStruct or ModelMapper)
-- ✅ Repository (JPA or MyBatis)
-- ✅ Service + ServiceImpl
-- ✅ Controller (REST)
-- ✅ Liquibase / Flyway migration script
-- ✅ OpenAPI / Swagger 3 spec
+- DTO (Request + Response) with proper relationship flattening
+- Mapper (MapStruct or ModelMapper)
+- Repository (Spring Data JPA)
+- Service + ServiceImpl with full CRUD
+- REST Controller with pagination
+- Liquibase / Flyway migration script
+
+Handles `@ManyToOne`, `@OneToMany`, `@ManyToMany`, `@OneToOne`, circular references, Lombok detection, and Spring Boot 2/3 namespace switching.
+
+---
+
+## Installation
+
+### Option 1 — Native binary (recommended)
+
+Download the latest release for your platform:
+
+```bash
+# Linux (x86_64)
+curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/springforge-linux-x86_64 -o springforge
+chmod +x springforge
+sudo mv springforge /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/springforge-macos-aarch64 -o springforge
+chmod +x springforge
+sudo mv springforge /usr/local/bin/
+```
+
+Or use the install script:
+
+```bash
+curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/install.sh | bash
+```
+
+### Option 2 — Fat JAR (requires Java 21+)
+
+Download `springforge-tui-*-all.jar` from the [releases page](https://github.com/CedricNdong/springforge-tui/releases) and run:
+
+```bash
+java -jar springforge-tui-*-all.jar generate --help
+```
 
 ---
 
 ## Quick Start
 
-### Via JBang (zero install)
+1. Navigate to your Spring Boot project root (where your `@Entity` classes are):
 
 ```bash
-jbang springforge@CedricNdong/springforge-tui generate
+cd /path/to/your/spring-boot-project
 ```
 
-### Via native binary
+2. Generate all API layers for all detected entities:
 
 ```bash
-curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/install.sh | bash
-springforge generate
+# With native binary
+springforge generate --all
+
+# With fat JAR
+java -jar springforge-tui-*-all.jar generate --all
 ```
 
-### Requirements (JVM mode)
+SpringForge auto-scans `src/main/java/` for `@Entity` classes and generates DTOs, Mappers, Repositories, Services, and Controllers.
 
-- Java 21+
+3. Preview what would be generated without writing files:
+
+```bash
+springforge generate --all --dry-run
+```
+
+### Targeting specific entities
+
+```bash
+# Single entity file
+springforge generate --entity src/main/java/com/example/model/User.java --all
+
+# Multiple entity files
+springforge generate --entities User.java Product.java Order.java --all
+
+# Scan a specific directory
+springforge generate --dir src/main/java/com/example/model --all
+```
 
 ---
 
 ## Usage
 
 ```bash
-# Interactive TUI mode (default)
-springforge generate
+# Generate all layers for all entities (auto-scan src/main/java)
+springforge generate --all
 
-# Generate all entities, all layers, non-interactive
-springforge generate --all-entities --all --no-tui
+# Generate only DTOs and Mappers
+springforge generate --dto --mapper
+
+# Generate with ModelMapper instead of MapStruct
+springforge generate --all --mapper-lib modelmapper
+
+# Target Spring Boot 2.x (uses javax.* namespace)
+springforge generate --all --spring-version 2
+
+# Generate to a custom output directory
+springforge generate --all --output /tmp/generated
+
+# Overwrite existing files (default: skip)
+springforge generate --all --overwrite
 
 # Dry run — preview without writing files
-springforge generate --dry-run
-
-# Initialize springforge.yml in current project
-springforge init
-
-# Preview generated code to stdout
-springforge preview --entity User
+springforge generate --all --dry-run
 ```
 
-### Common flags
+### All flags
 
 | Flag | Description |
 |---|---|
-| `--entity <name>` | Target a specific entity |
-| `--all-entities` | Process all detected entities |
+| `-e, --entity <file>` | Single Java entity file |
+| `-E, --entities <files...>` | Multiple Java entity files |
+| `-d, --dir <dir>` | Scan directory for `@Entity` classes |
+| `--all-entities` | Auto-discover all `@Entity` classes in `src/` |
 | `--all` | Generate all layers |
-| `--no-tui` | Non-interactive pipeline mode |
+| `--dto` | Generate DTO classes only |
+| `--mapper` | Generate mapper only |
+| `--repository` | Generate repository only |
+| `--service` | Generate service + impl only |
+| `--controller` | Generate controller only |
+| `--migration` | Generate database migration only |
 | `--dry-run` | Show what would be generated without writing |
-| `--overwrite` | Overwrite existing files |
-| `--output <dir>` | Custom output directory |
+| `--overwrite` | Overwrite existing files (default: skip) |
+| `-o, --output <dir>` | Override output base directory |
 | `--spring-version <2\|3>` | Target Spring Boot version (default: 3) |
-| `--verbose` | Detailed step-by-step logging |
+| `--mapper-lib <lib>` | Mapper library: `mapstruct` or `modelmapper` |
+| `--db-migration <tool>` | Migration tool: `liquibase` or `flyway` |
+| `--no-tui` | Non-interactive pipeline mode |
 
 ---
 
@@ -120,18 +190,45 @@ Config resolution order (highest to lowest priority):
 
 ## Development
 
+### Build from source
+
 ```bash
-# Build
+# Build all modules
 ./gradlew build
 
-# Run tests
+# Run unit tests
 ./gradlew test
 
-# Run locally
-./gradlew :springforge-cli:run --args="generate"
+# Run integration tests (requires Docker for Testcontainers)
+./gradlew :springforge-integration-tests:integrationTest
 
-# Build native binary (requires GraalVM 25+)
+# Run locally via Gradle
+./gradlew :springforge-cli:run --args="generate --help"
+```
+
+### Build distributable artifacts
+
+```bash
+# Fat JAR — single JAR with all dependencies
+./gradlew :springforge-cli:fatJar
+# Output: springforge-cli/build/libs/springforge-cli-*-all.jar
+
+# Native binary (requires GraalVM 21+ with native-image)
 ./gradlew :springforge-cli:nativeCompile
+# Output: springforge-cli/build/native/nativeCompile/springforge
+```
+
+### Module structure
+
+```
+springforge-tui/
+├── springforge-cli/          # Picocli commands, entry points
+├── springforge-tui-screens/  # TUI screen implementations
+├── springforge-engine/       # Core: scanner, parser, renderer, writer
+├── springforge-templates/    # Mustache templates (built-in)
+├── springforge-config/       # springforge.yml parsing
+├── springforge-native/       # GraalVM native-image config
+└── springforge-integration-tests/  # E2E tests with Testcontainers
 ```
 
 ---

@@ -1,11 +1,7 @@
 package dev.springforge.engine.renderer;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import dev.springforge.engine.model.EntityDescriptor;
 import dev.springforge.engine.model.GeneratedFile;
@@ -16,8 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Batch generator using Java 21 virtual threads for parallel per-entity generation.
- * Processes all entities concurrently while each entity's layers are generated sequentially.
+ * Batch generator that renders all layers for all entities sequentially.
+ * Template rendering is CPU-bound and fast — parallelism adds overhead
+ * without meaningful gain for Mustache templates.
  */
 public class BatchGenerator {
 
@@ -30,8 +27,7 @@ public class BatchGenerator {
     }
 
     /**
-     * Generates all layers for all entities using virtual threads.
-     * Each entity is processed in its own virtual thread.
+     * Generates all layers for all entities sequentially.
      *
      * @param config generation config with entities and layers
      * @return list of all generated files
@@ -46,28 +42,17 @@ public class BatchGenerator {
             return templateRenderer.renderAll(config);
         }
 
-        LOG.info("Starting batch generation for {} entities using virtual threads",
-            entities.size());
+        LOG.info("Starting batch generation for {} entities", entities.size());
         long startTime = System.nanoTime();
 
-        List<GeneratedFile> allFiles = Collections.synchronizedList(new ArrayList<>());
-
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<?>> futures = new ArrayList<>();
-            for (EntityDescriptor entity : entities) {
-                futures.add(executor.submit(() -> {
-                    List<GeneratedFile> entityFiles = generateForEntity(entity, config);
-                    allFiles.addAll(entityFiles);
-                }));
+        List<GeneratedFile> allFiles = new ArrayList<>();
+        for (EntityDescriptor entity : entities) {
+            for (Layer layer : config.layers()) {
+                GeneratedFile file = templateRenderer.renderSingle(entity, layer, config);
+                allFiles.add(file);
             }
-            for (Future<?> future : futures) {
-                future.get();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Batch generation interrupted", e);
-        } catch (java.util.concurrent.ExecutionException e) {
-            throw new RuntimeException("Batch generation failed", e.getCause());
+            LOG.debug("Generated {} layers for entity {}",
+                config.layers().size(), entity.className());
         }
 
         long durationMs = (System.nanoTime() - startTime) / 1_000_000;
@@ -75,16 +60,5 @@ public class BatchGenerator {
             allFiles.size(), durationMs);
 
         return allFiles;
-    }
-
-    private List<GeneratedFile> generateForEntity(EntityDescriptor entity,
-            GenerationConfig config) {
-        List<GeneratedFile> files = new ArrayList<>();
-        for (Layer layer : config.layers()) {
-            GeneratedFile file = templateRenderer.renderSingle(entity, layer, config);
-            files.add(file);
-        }
-        LOG.debug("Generated {} files for entity {}", files.size(), entity.className());
-        return files;
     }
 }

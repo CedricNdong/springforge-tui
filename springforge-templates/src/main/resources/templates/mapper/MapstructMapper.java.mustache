@@ -11,9 +11,12 @@ import org.mapstruct.MappingTarget;
 public interface {{entity.name}}Mapper {
 
 {{#entity.fields}}
-{{#mapperIgnore}}
+{{#hasResponseSourceMapping}}
+    @Mapping(source = "{{responseSource}}", target = "{{responseTarget}}")
+{{/hasResponseSourceMapping}}
+{{#responseMapperIgnore}}
     @Mapping(target = "{{dtoFieldName}}", ignore = true)
-{{/mapperIgnore}}
+{{/responseMapperIgnore}}
 {{/entity.fields}}
     {{entity.name}}ResponseDto toResponseDto({{entity.name}} entity);
 

@@ -462,4 +462,191 @@ class TemplateRendererTest {
 
         assertThat(files).hasSize(Layer.values().length);
     }
+
+    @Nested
+    @DisplayName("Relationship mapping")
+    class RelationshipMappingTest {
+
+        @Test
+        @DisplayName("should use source mapping for @ManyToOne in toResponseDto")
+        void shouldUseSourceMappingForManyToOne() {
+            EntityDescriptor orderEntity = new EntityDescriptor(
+                "Order", "com.example.model",
+                List.of(
+                    new FieldDescriptor("id", "Long", null, true, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("total", "Double", null, false, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("user", "User", null, false, false, false,
+                        RelationType.MANY_TO_ONE, "User", false)
+                ),
+                Set.of("Entity"),
+                SpringNamespace.JAKARTA,
+                false, "id", "Long"
+            );
+
+            GenerationConfig cfg = new GenerationConfig(
+                List.of(orderEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+            String content = files.get(0).content();
+
+            assertThat(content).contains(
+                "@Mapping(source = \"user.id\", target = \"userId\")");
+            assertThat(content).contains(
+                "OrderResponseDto toResponseDto(Order entity)");
+        }
+
+        @Test
+        @DisplayName("should use ignore for @ManyToOne in toEntity")
+        void shouldUseIgnoreForManyToOneInToEntity() {
+            EntityDescriptor orderEntity = new EntityDescriptor(
+                "Order", "com.example.model",
+                List.of(
+                    new FieldDescriptor("id", "Long", null, true, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("user", "User", null, false, false, false,
+                        RelationType.MANY_TO_ONE, "User", false)
+                ),
+                Set.of("Entity"),
+                SpringNamespace.JAKARTA,
+                false, "id", "Long"
+            );
+
+            GenerationConfig cfg = new GenerationConfig(
+                List.of(orderEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+            String content = files.get(0).content();
+
+            assertThat(content).contains(
+                "@Mapping(target = \"user\", ignore = true)");
+            assertThat(content).contains(
+                "Order toEntity(OrderRequestDto dto)");
+        }
+
+        @Test
+        @DisplayName("should use ignore for circular @OneToMany in toResponseDto")
+        void shouldUseIgnoreForCircularOneToManyInResponseDto() {
+            EntityDescriptor parentEntity = new EntityDescriptor(
+                "User", "com.example.model",
+                List.of(
+                    new FieldDescriptor("id", "Long", null, true, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("orders", "List<Order>", null, false, false, false,
+                        RelationType.ONE_TO_MANY, "Order", true)
+                ),
+                Set.of("Entity"),
+                SpringNamespace.JAKARTA,
+                false, "id", "Long"
+            );
+
+            GenerationConfig cfg = new GenerationConfig(
+                List.of(parentEntity), EnumSet.of(Layer.MAPPER), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+            String content = files.get(0).content();
+
+            assertThat(content).contains(
+                "@Mapping(target = \"ordersIds\", ignore = true)");
+            assertThat(content).doesNotContain("source = \"orders.id\"");
+        }
+
+        @Test
+        @DisplayName("should flatten @ManyToOne to Long in RequestDto")
+        void shouldFlattenManyToOneInRequestDto() {
+            EntityDescriptor orderEntity = new EntityDescriptor(
+                "Order", "com.example.model",
+                List.of(
+                    new FieldDescriptor("id", "Long", null, true, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("user", "User", null, false, false, false,
+                        RelationType.MANY_TO_ONE, "User", false)
+                ),
+                Set.of("Entity"),
+                SpringNamespace.JAKARTA,
+                false, "id", "Long"
+            );
+
+            GenerationConfig cfg = new GenerationConfig(
+                List.of(orderEntity), EnumSet.of(Layer.DTO_REQUEST), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+            String content = files.get(0).content();
+
+            assertThat(content).contains("private Long userId;");
+            assertThat(content).doesNotContain("private User user;");
+        }
+
+        @Test
+        @DisplayName("should flatten @ManyToOne to Long in ResponseDto")
+        void shouldFlattenManyToOneInResponseDto() {
+            EntityDescriptor orderEntity = new EntityDescriptor(
+                "Order", "com.example.model",
+                List.of(
+                    new FieldDescriptor("id", "Long", null, true, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("user", "User", null, false, false, false,
+                        RelationType.MANY_TO_ONE, "User", false)
+                ),
+                Set.of("Entity"),
+                SpringNamespace.JAKARTA,
+                false, "id", "Long"
+            );
+
+            GenerationConfig cfg = new GenerationConfig(
+                List.of(orderEntity), EnumSet.of(Layer.DTO_RESPONSE), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+            String content = files.get(0).content();
+
+            assertThat(content).contains("private Long userId;");
+            assertThat(content).doesNotContain("private User user;");
+        }
+
+        @Test
+        @DisplayName("should not HTML-escape generic types in generated code")
+        void shouldNotEscapeGenericTypes() {
+            EntityDescriptor entityWithList = new EntityDescriptor(
+                "Category", "com.example.model",
+                List.of(
+                    new FieldDescriptor("id", "Long", null, true, false, false,
+                        RelationType.NONE, null, false),
+                    new FieldDescriptor("products", "List<Product>", null, false, false, false,
+                        RelationType.ONE_TO_MANY, "Product", false)
+                ),
+                Set.of("Entity"),
+                SpringNamespace.JAKARTA,
+                false, "id", "Long"
+            );
+
+            GenerationConfig cfg = new GenerationConfig(
+                List.of(entityWithList), EnumSet.of(Layer.DTO_RESPONSE), SpringVersion.V3,
+                MapperLib.MAPSTRUCT, ConflictStrategy.SKIP,
+                Path.of("target/generated"), "com.example",
+                false, false
+            );
+            List<GeneratedFile> files = renderer.renderAll(cfg);
+            String content = files.get(0).content();
+
+            assertThat(content).contains("List<ProductResponseDto>");
+            assertThat(content).doesNotContain("&lt;");
+            assertThat(content).doesNotContain("&gt;");
+        }
+    }
 }

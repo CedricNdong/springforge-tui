@@ -8,23 +8,28 @@ public record SplashState(
     int scannedFiles,
     String currentFile,
     boolean scanComplete,
-    String errorMessage
+    String errorMessage,
+    boolean configFound
 ) {
 
     public static SplashState initial() {
-        return new SplashState(0, 0, "", false, null);
+        return new SplashState(0, 0, "", false, null, false);
     }
 
     public SplashState withProgress(int scannedFiles, String currentFile) {
-        return new SplashState(totalFiles, scannedFiles, currentFile, false, null);
+        return new SplashState(totalFiles, scannedFiles, currentFile, false, null, configFound);
     }
 
     public SplashState withComplete(int totalFiles) {
-        return new SplashState(totalFiles, totalFiles, "", true, null);
+        return new SplashState(totalFiles, totalFiles, "", true, null, configFound);
     }
 
     public SplashState withError(String errorMessage) {
-        return new SplashState(totalFiles, scannedFiles, currentFile, false, errorMessage);
+        return new SplashState(totalFiles, scannedFiles, currentFile, false, errorMessage, configFound);
+    }
+
+    public SplashState withConfigFound(boolean found) {
+        return new SplashState(totalFiles, scannedFiles, currentFile, scanComplete, errorMessage, found);
     }
 
     public int progressPercent() {

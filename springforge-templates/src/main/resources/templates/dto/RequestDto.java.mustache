@@ -1,8 +1,8 @@
 package {{config.dtoPackage}};
 
-{{#entity.dtoImports}}
+{{#entity.requestDtoImports}}
 import {{import}};
-{{/entity.dtoImports}}
+{{/entity.requestDtoImports}}
 {{#config.useLombok}}
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,17 +20,17 @@ import {{config.namespace}}.validation.constraints.NotNull;
 public class {{entity.name}}RequestDto {
 
 {{#entity.nonIdFields}}
-    private {{dtoType}} {{dtoFieldName}};
+    private {{requestDtoType}} {{requestDtoFieldName}};
 {{/entity.nonIdFields}}
 {{^config.useLombok}}
 {{#entity.nonIdFields}}
 
-    public {{dtoType}} get{{dtoFieldNameCapitalized}}() {
-        return {{dtoFieldName}};
+    public {{requestDtoType}} get{{requestDtoFieldNameCapitalized}}() {
+        return {{requestDtoFieldName}};
     }
 
-    public void set{{dtoFieldNameCapitalized}}({{dtoType}} {{dtoFieldName}}) {
-        this.{{dtoFieldName}} = {{dtoFieldName}};
+    public void set{{requestDtoFieldNameCapitalized}}({{requestDtoType}} {{requestDtoFieldName}}) {
+        this.{{requestDtoFieldName}} = {{requestDtoFieldName}};
     }
 {{/entity.nonIdFields}}
 {{/config.useLombok}}

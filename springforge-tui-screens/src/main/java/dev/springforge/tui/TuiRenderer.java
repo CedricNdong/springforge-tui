@@ -34,7 +34,7 @@ public interface TuiRenderer {
 
     void showProgress(GenerationProgressState state);
 
-    void showSummary(GenerationReport report);
+    void showSummary(GenerationReport report, SummaryCallbacks callbacks);
 
     void showError(ErrorState state, ErrorCallbacks callbacks);
 
@@ -51,6 +51,11 @@ public interface TuiRenderer {
     interface PreviewCallbacks {
         void onConfirm();
         void onBack();
+    }
+
+    interface SummaryCallbacks {
+        void onGenerateMore();
+        void onQuit();
     }
 
     interface ErrorCallbacks {

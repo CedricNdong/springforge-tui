@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 
 import dev.springforge.config.SpringForgeConfig;
 import dev.springforge.engine.model.ConflictStrategy;
+import dev.springforge.engine.model.EntityDescriptor;
 import dev.springforge.engine.model.Layer;
 import dev.springforge.engine.model.MapperLib;
 import dev.springforge.engine.model.SpringVersion;
@@ -127,11 +130,13 @@ class GenerateCommandTest {
     }
 
     @Test
-    @DisplayName("should return exit code 3 when no entities found")
-    void shouldReturnExitCode3WhenNoEntities() {
+    @DisplayName("should return exit code 3 when no entities found in scan dir")
+    void shouldReturnExitCode3WhenNoEntities() throws IOException {
         GenerateCommand cmd = new GenerateCommand();
         cmd.setParent(new MainCommand());
-        // No entity source set — will find nothing
+        // Point to an empty subdirectory — no @Entity files
+        Path emptyDir = Files.createDirectory(tempDir.resolve("empty"));
+        cmd.setScanDir(emptyDir);
         int exitCode = cmd.call();
         assertThat(exitCode).isEqualTo(ExitCodes.ENTITY_PARSE_ERROR);
     }
@@ -152,6 +157,41 @@ class GenerateCommandTest {
         assertThat(exitCode).isEqualTo(0);
         // Dry run should not create output directory
         assertThat(Files.exists(tempDir.resolve("output"))).isFalse();
+    }
+
+    @Test
+    @DisplayName("should infer base package from entity package when no config")
+    void shouldInferBasePackageFromEntity() {
+        GenerateCommand cmd = new GenerateCommand();
+        SpringForgeConfig config = new SpringForgeConfig(); // default "com.example"
+
+        EntityDescriptor entity = new EntityDescriptor(
+            "Product", "de.thegeekengineer.model",
+            List.of(), Set.of("Entity"),
+            dev.springforge.engine.model.SpringNamespace.JAKARTA,
+            false, "id", "Long"
+        );
+
+        String pkg = cmd.resolveBasePackage(config, List.of(entity));
+        assertThat(pkg).isEqualTo("de.thegeekengineer");
+    }
+
+    @Test
+    @DisplayName("should keep configured base package when springforge.yml sets it")
+    void shouldKeepConfiguredBasePackage() {
+        GenerateCommand cmd = new GenerateCommand();
+        SpringForgeConfig config = new SpringForgeConfig();
+        config.getProject().setBasePackage("org.myapp");
+
+        EntityDescriptor entity = new EntityDescriptor(
+            "Product", "de.thegeekengineer.model",
+            List.of(), Set.of("Entity"),
+            dev.springforge.engine.model.SpringNamespace.JAKARTA,
+            false, "id", "Long"
+        );
+
+        String pkg = cmd.resolveBasePackage(config, List.of(entity));
+        assertThat(pkg).isEqualTo("org.myapp");
     }
 
     @Test
