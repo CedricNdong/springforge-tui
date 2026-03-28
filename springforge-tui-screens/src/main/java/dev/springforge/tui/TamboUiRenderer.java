@@ -271,8 +271,8 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             entitySelectionState = entitySelectionState.moveFocusDown();
             return true;
         }
-        // Space → toggle selection
-        if (ke.isSelect()) {
+        // Space or Enter → toggle selection
+        if (ke.isSelect() || ke.isConfirm()) {
             entitySelectionState = entitySelectionState.toggleSelected();
             return true;
         }
