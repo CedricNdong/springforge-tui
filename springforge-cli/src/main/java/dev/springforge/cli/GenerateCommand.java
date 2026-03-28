@@ -460,15 +460,41 @@ public class GenerateCommand implements Callable<Integer> {
 
         Path basePath = resolveOutputPath(entities);
 
-        // Show progress
+        // Write files one by one, updating progress after each
+        CodeFileWriter writer = new CodeFileWriter();
         GenerationProgressState progressState =
             GenerationProgressState.initial(files.size());
         tui.showProgress(progressState);
 
-        // Write files
-        CodeFileWriter writer = new CodeFileWriter();
-        GenerationReport report = writer.writeAll(
-            files, layerConfig.conflictStrategy(), basePath);
+        java.time.Instant start = java.time.Instant.now();
+        List<dev.springforge.engine.model.FileGenerationResult> results = new ArrayList<>();
+        int created = 0;
+        int skipped = 0;
+        int errors = 0;
+
+        for (GeneratedFile file : files) {
+            progressState = progressState.withCurrentFile(
+                file.outputPath().getFileName().toString());
+            tui.showProgress(progressState);
+            sleep(80);
+
+            var result = writer.writeSingle(file, layerConfig.conflictStrategy(), basePath);
+            results.add(result);
+            switch (result.status()) {
+                case CREATED -> created++;
+                case SKIPPED -> skipped++;
+                case ERROR -> errors++;
+                default -> { }
+            }
+
+            progressState = progressState.withFileResult(result);
+            tui.showProgress(progressState);
+            sleep(40);
+        }
+
+        java.time.Duration duration = java.time.Duration.between(start, java.time.Instant.now());
+        GenerationReport report = new GenerationReport(
+            files.size(), created, skipped, errors, results, duration);
 
         // Show summary — blocks until user quits
         tui.showSummary(report);
@@ -731,6 +757,14 @@ public class GenerateCommand implements Callable<Integer> {
     void setMapperLibFlag(String flag) { this.mapperLibFlag = flag; }
     void setDryRun(boolean dryRun) { this.dryRun = dryRun; }
     void setParent(MainCommand parent) { this.parent = parent; }
+
+    private void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     private void printDryRun(List<GeneratedFile> files) {
         System.out.println("=== Dry Run — Files that would be generated ===");

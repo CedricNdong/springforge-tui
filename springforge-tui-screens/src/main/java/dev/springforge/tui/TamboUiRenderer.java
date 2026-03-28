@@ -211,6 +211,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             case ENTITY_SELECTION -> handleEntitySelectionEvent(ke);
             case LAYER_CONFIG -> handleLayerConfigEvent(ke);
             case PREVIEW -> handlePreviewEvent(ke);
+            case PROGRESS -> handleProgressEvent(ke);
             case SUMMARY -> handleSummaryEvent(ke);
             case ERROR -> handleErrorEvent(ke);
             default -> false;
@@ -547,6 +548,21 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             }
         }
         return count;
+    }
+
+    // ── Progress (S5) ─────────────────────────────────────────────────
+
+    private boolean handleProgressEvent(KeyEvent ke) {
+        // ↑/↓ scroll the generation log
+        if (ke.isUp()) {
+            progressState = progressState.scrollLogUp();
+            return true;
+        }
+        if (ke.isDown()) {
+            progressState = progressState.scrollLogDown();
+            return true;
+        }
+        return false;
     }
 
     // ── Summary (S6) ─────────────────────────────────────────────────

@@ -67,17 +67,6 @@ public final class ProgressScreen {
                 Span.raw(" " + statusIcon + " SpringForge ").bold().cyan(),
                 Span.raw("\u2014 " + statusText + " ").white()
             )))
-            .titleBottom(Title.from(Line.from(
-                Span.raw(" \uD83D\uDCE6 ").dim(),
-                Span.raw(String.valueOf(state.completedFiles())).green(),
-                Span.raw(" created ").dim(),
-                Span.raw("| \u23ED ").dim(),
-                Span.raw(String.valueOf(state.skippedFiles())).yellow(),
-                Span.raw(" skipped ").dim(),
-                Span.raw("| \u274C ").dim(),
-                Span.raw(String.valueOf(state.errorFiles())).red(),
-                Span.raw(" errors ").dim()
-            )))
             .build();
 
         frame.renderWidget(header, area);
@@ -147,7 +136,15 @@ public final class ProgressScreen {
             GenerationProgressState state) {
         List<Line> lines = new ArrayList<>();
 
-        for (FileGenerationResult result : state.log()) {
+        // Calculate visible window based on area height (minus 2 for borders)
+        int viewportHeight = area.height() - 2;
+        List<FileGenerationResult> logEntries = state.log();
+        int startIdx = Math.max(0,
+            Math.min(state.logScrollOffset(), logEntries.size() - viewportHeight));
+        int endIdx = Math.min(logEntries.size(), startIdx + viewportHeight);
+
+        for (int i = startIdx; i < endIdx; i++) {
+            FileGenerationResult result = logEntries.get(i);
             Span icon = switch (result.status()) {
                 case CREATED -> Span.raw("  \u2705 ").green();
                 case SKIPPED -> Span.raw("  \u23ED ").yellow();
@@ -178,6 +175,17 @@ public final class ProgressScreen {
                 .title(Title.from(Line.from(
                     Span.raw(" \uD83D\uDCDD Generation Log ").bold()
                 )))
+                .titleBottom(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCE6 ").dim(),
+                    Span.raw(String.valueOf(state.completedFiles())).green(),
+                    Span.raw(" created ").dim(),
+                    Span.raw("| \u23ED ").dim(),
+                    Span.raw(String.valueOf(state.skippedFiles())).yellow(),
+                    Span.raw(" skipped ").dim(),
+                    Span.raw("| \u274C ").dim(),
+                    Span.raw(String.valueOf(state.errorFiles())).red(),
+                    Span.raw(" errors ").dim()
+                )))
                 .build())
             .build();
 
@@ -203,7 +211,9 @@ public final class ProgressScreen {
             );
         } else {
             footer = Line.from(
-                Span.raw(" \u23F3 Generation in progress...").dim()
+                Span.raw(" [\u2191\u2193]").bold().yellow(),
+                Span.raw(" Scroll Log ").dim(),
+                Span.raw("\u23F3 Generation in progress...").dim()
             );
         }
 

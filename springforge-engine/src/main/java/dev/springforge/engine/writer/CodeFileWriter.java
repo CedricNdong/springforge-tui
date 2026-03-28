@@ -52,7 +52,7 @@ public class CodeFileWriter {
         );
     }
 
-    FileGenerationResult writeSingle(GeneratedFile file,
+    public FileGenerationResult writeSingle(GeneratedFile file,
             ConflictStrategy strategy, Path basePath) {
         Path outputPath = file.outputPath();
         String pathStr = outputPath.toString();

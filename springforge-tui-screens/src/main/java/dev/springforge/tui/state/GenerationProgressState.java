@@ -16,7 +16,8 @@ public record GenerationProgressState(
     int errorFiles,
     String currentFile,
     List<FileGenerationResult> log,
-    OverallStatus overallStatus
+    OverallStatus overallStatus,
+    int logScrollOffset
 ) {
 
     public enum OverallStatus {
@@ -25,7 +26,7 @@ public record GenerationProgressState(
 
     public static GenerationProgressState initial(int totalFiles) {
         return new GenerationProgressState(
-            totalFiles, 0, 0, 0, "", List.of(), OverallStatus.IN_PROGRESS);
+            totalFiles, 0, 0, 0, "", List.of(), OverallStatus.IN_PROGRESS, 0);
     }
 
     public GenerationProgressState withFileResult(FileGenerationResult result) {
@@ -46,15 +47,32 @@ public record GenerationProgressState(
         if (newCompleted + newSkipped + newError >= totalFiles) {
             status = newError > 0 ? OverallStatus.ERROR : OverallStatus.DONE;
         }
+        // Auto-scroll to bottom when new result arrives
+        int newOffset = Math.max(0, newLog.size() - 1);
         return new GenerationProgressState(
             totalFiles, newCompleted, newSkipped, newError,
-            nextFile, newLog, status);
+            nextFile, newLog, status, newOffset);
     }
 
     public GenerationProgressState withCurrentFile(String currentFile) {
         return new GenerationProgressState(
             totalFiles, completedFiles, skippedFiles, errorFiles,
-            currentFile, log, overallStatus);
+            currentFile, log, overallStatus, logScrollOffset);
+    }
+
+    public GenerationProgressState scrollLogUp() {
+        return new GenerationProgressState(
+            totalFiles, completedFiles, skippedFiles, errorFiles,
+            currentFile, log, overallStatus,
+            Math.max(0, logScrollOffset - 1));
+    }
+
+    public GenerationProgressState scrollLogDown() {
+        int maxOffset = Math.max(0, log.size() - 1);
+        return new GenerationProgressState(
+            totalFiles, completedFiles, skippedFiles, errorFiles,
+            currentFile, log, overallStatus,
+            Math.min(maxOffset, logScrollOffset + 1));
     }
 
     public int progressPercent() {
