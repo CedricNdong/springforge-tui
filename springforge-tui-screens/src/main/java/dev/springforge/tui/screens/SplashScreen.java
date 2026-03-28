@@ -122,7 +122,7 @@ public final class SplashScreen {
                     ? Span.raw(" \uD83D\uDCC4 springforge.yml found").green()
                     : Span.raw(" \uD83D\uDCC4 No springforge.yml").dim()),
                 Line.from(Span.raw("")),
-                Line.from(Span.raw(" \uD83D\uDC49 Press any key to continue...").bold().yellow())
+                Line.from(Span.raw(" \uD83D\uDC49 Press ").dim(), Span.raw("[Tab]").bold().yellow(), Span.raw(" to continue...").dim())
             );
         } else if (!state.currentFile().isEmpty()) {
             statusText = Text.from(

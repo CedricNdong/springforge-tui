@@ -194,28 +194,11 @@ public final class ProgressScreen {
 
     private static void renderFooter(Frame frame, Rect area,
             GenerationProgressState state) {
-        Line footer;
-        if (state.overallStatus() == GenerationProgressState.OverallStatus.DONE) {
-            footer = Line.from(
-                Span.raw(" [Enter]").bold().yellow(),
-                Span.raw(" View Summary ").dim(),
-                Span.raw("[q]").bold().yellow(),
-                Span.raw(" Quit \u274C").dim()
-            );
-        } else if (state.overallStatus() == GenerationProgressState.OverallStatus.ERROR) {
-            footer = Line.from(
-                Span.raw(" [Enter]").bold().yellow(),
-                Span.raw(" View Summary ").dim(),
-                Span.raw("[q]").bold().yellow(),
-                Span.raw(" Quit \u274C").dim()
-            );
-        } else {
-            footer = Line.from(
-                Span.raw(" [\u2191\u2193]").bold().yellow(),
-                Span.raw(" Scroll Log ").dim(),
-                Span.raw("\u23F3 Generation in progress...").dim()
-            );
-        }
+        Line footer = Line.from(
+            Span.raw(" [\u2191\u2193]").bold().yellow(),
+            Span.raw(" Scroll Log ").dim(),
+            Span.raw("\u23F3 Generation in progress...").dim()
+        );
 
         Paragraph footerWidget = Paragraph.builder()
             .text(Text.from(footer))

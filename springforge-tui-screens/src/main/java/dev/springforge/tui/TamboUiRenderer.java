@@ -195,10 +195,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     // ── Event handling ───────────────────────────────────────────────
 
     private boolean handleEvent(Event event, TuiRunner runner) {
-        // Tick events → redraw during splash/progress so progress bar updates
+        // Tick events → always redraw to avoid blank screens during transitions
         if (event instanceof TickEvent) {
-            return currentScreen == ScreenType.SPLASH
-                || currentScreen == ScreenType.PROGRESS;
+            return true;
         }
 
         if (!(event instanceof KeyEvent ke)) {
@@ -224,10 +223,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Splash (S1) ────────────────────────────────────────────────────
-    // "Press any key to continue..." after scan completes
 
     private boolean handleSplashEvent(KeyEvent ke) {
-        if (waitingForSplashKey) {
+        if (waitingForSplashKey && ke.isFocusNext()) {
             waitingForSplashKey = false;
             completeScreen();
             return true;
@@ -403,6 +401,12 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
         // [⇧Tab] or Esc → back to layer config
         if (ke.isFocusPrevious() || ke.isCancel()) {
             previewCallbacks.onBack();
+            completeScreen();
+            return true;
+        }
+        // [Tab] → confirm and generate (same as Ctrl+G)
+        if (ke.isFocusNext()) {
+            previewCallbacks.onConfirm();
             completeScreen();
             return true;
         }

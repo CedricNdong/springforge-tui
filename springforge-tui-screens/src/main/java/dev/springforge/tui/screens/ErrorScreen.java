@@ -108,14 +108,11 @@ public final class ErrorScreen {
                 Span.raw(" [R]").bold().yellow(),
                 Span.raw(" Retry ").dim(),
                 Span.raw("[S]").bold().yellow(),
-                Span.raw(" Skip ").dim(),
-                Span.raw("[\u21E7Tab]").bold().yellow(),
-                Span.raw(" Back").dim()
+                Span.raw(" Skip").dim()
             );
         } else {
             leftLine = Line.from(
-                Span.raw(" [\u21E7Tab]").bold().yellow(),
-                Span.raw(" Back").dim()
+                Span.raw(" \u26A0 No actions available").dim()
             );
         }
 
