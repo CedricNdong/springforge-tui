@@ -92,4 +92,71 @@ class GenerationProgressStateTest {
         assertThat(state.log().get(0).filePath()).isEqualTo("dto/UserRequestDto.java");
         assertThat(state.log().get(1).status()).isEqualTo(GenerationStatus.SKIPPED);
     }
+
+    // ── Log scrolling ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("should start with zero scroll offset")
+    void shouldStartWithZeroScrollOffset() {
+        GenerationProgressState state = GenerationProgressState.initial(5);
+        assertThat(state.logScrollOffset()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("should auto-scroll to bottom on new file result")
+    void shouldAutoScrollOnNewResult() {
+        GenerationProgressState state = GenerationProgressState.initial(5)
+            .withFileResult(new FileGenerationResult(
+                "dto/UserRequestDto.java", GenerationStatus.CREATED, ""))
+            .withFileResult(new FileGenerationResult(
+                "dto/UserResponseDto.java", GenerationStatus.CREATED, ""))
+            .withFileResult(new FileGenerationResult(
+                "mapper/UserMapper.java", GenerationStatus.CREATED, ""));
+
+        assertThat(state.logScrollOffset()).isEqualTo(2); // last entry index
+    }
+
+    @Test
+    @DisplayName("should scroll log up and down")
+    void shouldScrollLogUpAndDown() {
+        GenerationProgressState state = GenerationProgressState.initial(5)
+            .withFileResult(new FileGenerationResult(
+                "dto/UserRequestDto.java", GenerationStatus.CREATED, ""))
+            .withFileResult(new FileGenerationResult(
+                "dto/UserResponseDto.java", GenerationStatus.CREATED, ""))
+            .withFileResult(new FileGenerationResult(
+                "mapper/UserMapper.java", GenerationStatus.CREATED, ""));
+
+        // Auto-scrolled to 2, scroll up
+        state = state.scrollLogUp();
+        assertThat(state.logScrollOffset()).isEqualTo(1);
+
+        state = state.scrollLogUp();
+        assertThat(state.logScrollOffset()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("should clamp scroll offset at bounds")
+    void shouldClampScrollOffset() {
+        GenerationProgressState state = GenerationProgressState.initial(2)
+            .withFileResult(new FileGenerationResult(
+                "dto/UserRequestDto.java", GenerationStatus.CREATED, ""));
+
+        // Clamp at top
+        state = state.scrollLogUp().scrollLogUp().scrollLogUp();
+        assertThat(state.logScrollOffset()).isEqualTo(0);
+
+        // Clamp at bottom
+        state = state.scrollLogDown().scrollLogDown().scrollLogDown();
+        assertThat(state.logScrollOffset()).isEqualTo(0); // only 1 entry, max offset = 0
+    }
+
+    @Test
+    @DisplayName("should track current file being generated")
+    void shouldTrackCurrentFile() {
+        GenerationProgressState state = GenerationProgressState.initial(3)
+            .withCurrentFile("dto/UserRequestDto.java");
+
+        assertThat(state.currentFile()).isEqualTo("dto/UserRequestDto.java");
+    }
 }

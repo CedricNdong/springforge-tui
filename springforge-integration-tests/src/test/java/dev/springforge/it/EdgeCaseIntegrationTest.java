@@ -9,6 +9,7 @@ import dev.springforge.engine.model.ConflictStrategy;
 import dev.springforge.engine.model.EntityDescriptor;
 import dev.springforge.engine.model.GeneratedFile;
 import dev.springforge.engine.model.GenerationConfig;
+import dev.springforge.engine.model.GenerationReport;
 import dev.springforge.engine.model.Layer;
 import dev.springforge.engine.model.MapperLib;
 import dev.springforge.engine.model.SpringVersion;
@@ -691,6 +692,131 @@ class EdgeCaseIntegrationTest {
             String content = files.get(0).content();
             assertThat(content).contains("CREATE TABLE receipt");
             assertThat(content).contains("id BIGINT PRIMARY KEY");
+        }
+    }
+
+    // ── Conflict Strategy ────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Conflict strategy")
+    class ConflictStrategyTest {
+
+        @Test
+        @DisplayName("should skip existing files when strategy is SKIP")
+        void shouldSkipExistingFiles() throws Exception {
+            EntityDescriptor entity = parseSimpleEntity("SkipEntity.java");
+            GenerationConfig config = new GenerationConfig(
+                List.of(entity),
+                EnumSet.of(Layer.DTO_REQUEST),
+                SpringVersion.V3, MapperLib.MAPSTRUCT,
+                ConflictStrategy.OVERWRITE, outputDir, "com.test",
+                false, false
+            );
+            // First write
+            List<GeneratedFile> files = batchGenerator.generateAll(config);
+            GenerationReport firstReport = writer.writeAll(files, ConflictStrategy.OVERWRITE, outputDir);
+            assertThat(firstReport.createdFiles()).isEqualTo(1);
+
+            // Second write with SKIP — should not overwrite
+            GenerationReport secondReport = writer.writeAll(files, ConflictStrategy.SKIP, outputDir);
+            assertThat(secondReport.skippedFiles()).isEqualTo(1);
+            assertThat(secondReport.createdFiles()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("should overwrite existing files when strategy is OVERWRITE")
+        void shouldOverwriteExistingFiles() throws Exception {
+            EntityDescriptor entity = parseSimpleEntity("OverwriteEntity.java");
+            GenerationConfig config = new GenerationConfig(
+                List.of(entity),
+                EnumSet.of(Layer.DTO_REQUEST),
+                SpringVersion.V3, MapperLib.MAPSTRUCT,
+                ConflictStrategy.OVERWRITE, outputDir, "com.test",
+                false, false
+            );
+            List<GeneratedFile> files = batchGenerator.generateAll(config);
+            writer.writeAll(files, ConflictStrategy.OVERWRITE, outputDir);
+
+            // Second write with OVERWRITE — should create again
+            GenerationReport secondReport = writer.writeAll(files, ConflictStrategy.OVERWRITE, outputDir);
+            assertThat(secondReport.createdFiles()).isEqualTo(1);
+            assertThat(secondReport.skippedFiles()).isEqualTo(0);
+        }
+    }
+
+    // ── Cross-Config ───────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Cross-configuration generation")
+    class CrossConfigTest {
+
+        @Test
+        @DisplayName("should generate with ModelMapper + SB2 + Flyway")
+        void shouldGenerateWithModelMapperSb2Flyway() throws Exception {
+            EntityDescriptor entity = parseSimpleEntity("CrossEntity.java");
+            GenerationConfig config = new GenerationConfig(
+                List.of(entity),
+                EnumSet.of(
+                    Layer.DTO_REQUEST, Layer.DTO_RESPONSE,
+                    Layer.MAPPER, Layer.REPOSITORY,
+                    Layer.SERVICE, Layer.SERVICE_IMPL,
+                    Layer.CONTROLLER, Layer.FLYWAY
+                ),
+                SpringVersion.V2, MapperLib.MODEL_MAPPER,
+                ConflictStrategy.OVERWRITE, outputDir, "com.test",
+                false, false
+            );
+            List<GeneratedFile> files = batchGenerator.generateAll(config);
+            writer.writeAll(files, ConflictStrategy.OVERWRITE, outputDir);
+
+            assertThat(files).hasSize(8);
+
+            // Verify SB2 namespace
+            GeneratedFile requestDto = findFile(files, Layer.DTO_REQUEST, "CrossEntity");
+            assertThat(requestDto.content()).contains("javax.validation");
+
+            // Verify ModelMapper
+            GeneratedFile mapper = findFile(files, Layer.MAPPER, "CrossEntity");
+            assertThat(mapper.content()).contains("ModelMapper");
+            assertThat(mapper.content()).doesNotContain("@Mapper(componentModel");
+
+            // Verify Flyway
+            GeneratedFile flyway = findFile(files, Layer.FLYWAY, "CrossEntity");
+            assertThat(flyway.content()).contains("CREATE TABLE cross_entity");
+        }
+    }
+
+    // ── Minimal Entity ─────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Minimal entity")
+    class MinimalEntityTest {
+
+        @Test
+        @DisplayName("should handle entity with only @Id field")
+        void shouldHandleIdOnlyEntity() throws Exception {
+            Path file = writeEntity("MinimalEntity.java", """
+                package com.test.model;
+                import jakarta.persistence.Entity;
+                import jakarta.persistence.Id;
+
+                @Entity
+                public class MinimalEntity {
+                    @Id private Long id;
+                }
+                """);
+
+            EntityDescriptor entity = parser.parse(file);
+            assertThat(entity.fields()).hasSize(1);
+            assertThat(entity.fields().get(0).isId()).isTrue();
+
+            List<GeneratedFile> files = generateAll(List.of(entity));
+            GeneratedFile requestDto = findFile(files, Layer.DTO_REQUEST, "MinimalEntity");
+            // RequestDto should have no fields (id excluded from request)
+            assertThat(requestDto.content()).doesNotContain("private Long id;");
+
+            GeneratedFile responseDto = findFile(files, Layer.DTO_RESPONSE, "MinimalEntity");
+            assertThat(responseDto.content()).contains("private Long id;");
         }
     }
 
