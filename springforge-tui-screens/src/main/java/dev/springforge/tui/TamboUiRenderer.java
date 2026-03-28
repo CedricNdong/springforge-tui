@@ -370,9 +370,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
         if (ke.isSelect() || ke.isConfirm()) {
             if (layerConfigState.activePanel() == LayerConfigState.ActivePanel.LAYERS) {
                 int idx = layerConfigState.focusedIndex();
-                Layer[] layers = Layer.values();
-                if (idx < layers.length) {
-                    layerConfigState = layerConfigState.toggleLayer(layers[idx]);
+                var layers = LayerConfigState.DISPLAY_LAYERS;
+                if (idx < layers.size()) {
+                    layerConfigState = layerConfigState.toggleLayer(layers.get(idx));
                 }
             } else {
                 layerConfigState = layerConfigState.toggleFocusedOption();

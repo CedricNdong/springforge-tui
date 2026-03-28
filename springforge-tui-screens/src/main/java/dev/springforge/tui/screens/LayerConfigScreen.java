@@ -9,6 +9,7 @@ import dev.springforge.engine.model.MapperLib;
 import dev.springforge.engine.model.SpringVersion;
 import dev.springforge.tui.state.LayerConfigState;
 import dev.springforge.tui.state.LayerConfigState.ActivePanel;
+import dev.springforge.tui.state.LayerConfigState.MigrationChoice;
 
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.layout.Layout;
@@ -32,12 +33,6 @@ import dev.tamboui.widgets.paragraph.Paragraph;
 public final class LayerConfigScreen {
 
     private LayerConfigScreen() {}
-
-    private static final List<Layer> LAYER_ORDER = List.of(
-        Layer.DTO_REQUEST, Layer.DTO_RESPONSE, Layer.MAPPER,
-        Layer.REPOSITORY, Layer.SERVICE, Layer.SERVICE_IMPL,
-        Layer.CONTROLLER, Layer.FILE_UPLOAD, Layer.LIQUIBASE, Layer.FLYWAY
-    );
 
     public static void render(Frame frame, Rect area, LayerConfigState state) {
         List<Rect> mainLayout = Layout.vertical()
@@ -78,10 +73,11 @@ public final class LayerConfigScreen {
 
     private static void renderLayerList(Frame frame, Rect area, LayerConfigState state) {
         boolean active = state.activePanel() == ActivePanel.LAYERS;
+        List<Layer> layers = LayerConfigState.DISPLAY_LAYERS;
         List<Line> lines = new ArrayList<>();
 
-        for (int i = 0; i < LAYER_ORDER.size(); i++) {
-            Layer layer = LAYER_ORDER.get(i);
+        for (int i = 0; i < layers.size(); i++) {
+            Layer layer = layers.get(i);
             boolean selected = state.selectedLayers().contains(layer);
             boolean focused = active && (i == state.focusedIndex());
 
@@ -179,6 +175,23 @@ public final class LayerConfigScreen {
             radioOption("Skip", state.conflictStrategy() == ConflictStrategy.SKIP),
             Span.raw("  "),
             radioOption("Overwrite", state.conflictStrategy() == ConflictStrategy.OVERWRITE)
+        ));
+        lines.add(Line.from(Span.raw("")));
+
+        // Option 3: Migration tool
+        boolean focusMigration = active && state.optionFocusedIndex() == 3;
+        String migrationPointer = focusMigration ? " \u25B6 " : "   ";
+        lines.add(Line.from(
+            focusMigration ? Span.raw(migrationPointer).cyan() : Span.raw(migrationPointer),
+            focusMigration
+                ? Span.raw("\uD83D\uDDC3 Migration:").bold().cyan()
+                : Span.raw("\uD83D\uDDC3 Migration:").bold(),
+            Span.raw("    "),
+            radioOption("Liquibase", state.migrationChoice() == MigrationChoice.LIQUIBASE),
+            Span.raw("  "),
+            radioOption("Flyway", state.migrationChoice() == MigrationChoice.FLYWAY),
+            Span.raw("  "),
+            radioOption("None", state.migrationChoice() == MigrationChoice.NONE)
         ));
 
         Color borderColor = active ? Color.BLUE : Color.DARK_GRAY;
