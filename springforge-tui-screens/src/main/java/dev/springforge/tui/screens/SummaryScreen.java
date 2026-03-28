@@ -22,13 +22,14 @@ import dev.tamboui.widgets.paragraph.Paragraph;
 
 /**
  * S6 — Summary screen.
- * Displays file count summary and output directory tree.
+ * Displays file count summary and scrollable output file list.
  */
 public final class SummaryScreen {
 
     private SummaryScreen() {}
 
-    public static void render(Frame frame, Rect area, GenerationReport report) {
+    public static void render(Frame frame, Rect area, GenerationReport report,
+            int scrollOffset) {
         List<Rect> layout = Layout.vertical()
             .constraints(
                 Constraint.length(3),
@@ -40,7 +41,7 @@ public final class SummaryScreen {
 
         renderHeader(frame, layout.get(0), report);
         renderStats(frame, layout.get(1), report);
-        renderFileTree(frame, layout.get(2), report);
+        renderFileList(frame, layout.get(2), report, scrollOffset);
         renderFooter(frame, layout.get(3));
     }
 
@@ -56,11 +57,6 @@ public final class SummaryScreen {
                 hasErrors
                     ? Span.raw("\u2014 Generation Complete (with warnings) ").bold().yellow()
                     : Span.raw("\u2014 Generation Complete! ").bold().green()
-            )))
-            .titleBottom(Title.from(Line.from(
-                Span.raw(" \u23F1 Duration: ").dim(),
-                Span.raw(report.duration().toMillis() + "ms").cyan(),
-                Span.raw(" ")
             )))
             .build();
 
@@ -99,16 +95,29 @@ public final class SummaryScreen {
                 .title(Title.from(Line.from(
                     Span.raw(" \uD83D\uDCCB Summary ").bold()
                 )))
+                .titleBottom(Title.from(Line.from(
+                    Span.raw(" \u23F1 Duration: ").dim(),
+                    Span.raw(report.duration().toMillis() + "ms").cyan(),
+                    Span.raw(" ")
+                )))
                 .build())
             .build();
 
         frame.renderWidget(statsWidget, area);
     }
 
-    private static void renderFileTree(Frame frame, Rect area, GenerationReport report) {
+    private static void renderFileList(Frame frame, Rect area, GenerationReport report,
+            int scrollOffset) {
+        List<FileGenerationResult> results = report.results();
         List<Line> lines = new ArrayList<>();
 
-        for (FileGenerationResult result : report.results()) {
+        int viewportHeight = area.height() - 2;
+        int startIdx = Math.max(0,
+            Math.min(scrollOffset, results.size() - viewportHeight));
+        int endIdx = Math.min(results.size(), startIdx + viewportHeight);
+
+        for (int i = startIdx; i < endIdx; i++) {
+            FileGenerationResult result = results.get(i);
             Span icon = switch (result.status()) {
                 case CREATED -> Span.raw("  \u2705 ").green();
                 case SKIPPED -> Span.raw("  \u23ED ").yellow();
@@ -145,23 +154,17 @@ public final class SummaryScreen {
     }
 
     private static void renderFooter(Frame frame, Rect area) {
-        List<Rect> footerLayout = Layout.horizontal()
-            .constraints(
-                Constraint.fill(),
-                Constraint.length(22)
-            )
-            .split(area);
-
-        // Left: action keys
-        Line leftLine = Line.from(
-            Span.raw(" [g]").bold().yellow(),
+        Line footerLine = Line.from(
+            Span.raw(" [\u2191\u2193]").bold().yellow(),
+            Span.raw(" Scroll ").dim(),
+            Span.raw("[g]").bold().yellow(),
             Span.raw(" Generate more ").dim(),
-            Span.raw("[\u21E7Tab]").bold().yellow(),
-            Span.raw(" Back").dim()
+            Span.raw("[q]").bold().yellow(),
+            Span.raw(" Quit").dim()
         );
 
-        Paragraph leftFooter = Paragraph.builder()
-            .text(Text.from(leftLine))
+        Paragraph footer = Paragraph.builder()
+            .text(Text.from(footerLine))
             .block(Block.builder()
                 .borders(Borders.ALL)
                 .borderType(BorderType.ROUNDED)
@@ -169,23 +172,6 @@ public final class SummaryScreen {
                 .build())
             .build();
 
-        frame.renderWidget(leftFooter, footerLayout.get(0));
-
-        // Right: quit
-        Line rightLine = Line.from(
-            Span.raw(" [q]").bold().yellow(),
-            Span.raw(" Quit \u274C").dim()
-        );
-
-        Paragraph rightFooter = Paragraph.builder()
-            .text(Text.from(rightLine))
-            .block(Block.builder()
-                .borders(Borders.ALL)
-                .borderType(BorderType.ROUNDED)
-                .borderStyle(Style.EMPTY.fg(Color.DARK_GRAY))
-                .build())
-            .build();
-
-        frame.renderWidget(rightFooter, footerLayout.get(1));
+        frame.renderWidget(footer, area);
     }
 }

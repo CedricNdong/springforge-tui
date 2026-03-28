@@ -68,6 +68,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     private volatile EntitySelectionCallbacks entityCallbacks;
     private volatile LayerConfigCallbacks layerCallbacks;
     private volatile PreviewCallbacks previewCallbacks;
+    private volatile SummaryCallbacks summaryCallbacks;
     private volatile ErrorCallbacks errorCallbacks;
 
     // Filter mode for entity selection: only accept typing when active
@@ -78,6 +79,8 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
 
     // Tree state for preview file tree (mutable, managed by TreeWidget)
     private TreeState previewTreeState;
+    // Summary scroll offset for output files list
+    private volatile int summaryScrollOffset;
     // Tree roots for expand/collapse operations
     private List<TreeNode<GeneratedFile>> previewTreeRoots;
 
@@ -175,8 +178,10 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     @Override
-    public void showSummary(GenerationReport report) {
+    public void showSummary(GenerationReport report, SummaryCallbacks callbacks) {
         this.summaryReport = report;
+        this.summaryCallbacks = callbacks;
+        this.summaryScrollOffset = 0;
         blockOnScreen(ScreenType.SUMMARY);
     }
 
@@ -566,12 +571,28 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     // ── Summary (S6) ─────────────────────────────────────────────────
-    // Footer: [q] Quit  [g] Generate more
 
     private boolean handleSummaryEvent(KeyEvent ke) {
-        // [q] or Esc or Enter → quit
-        if (ke.isCharIgnoreCase('q') || ke.isCancel() || ke.isConfirm()) {
+        // [q] or Esc → quit
+        if (ke.isCharIgnoreCase('q') || ke.isCancel()) {
+            summaryCallbacks.onQuit();
             completeScreen();
+            return true;
+        }
+        // [g] → generate more (back to S2)
+        if (ke.isCharIgnoreCase('g')) {
+            summaryCallbacks.onGenerateMore();
+            completeScreen();
+            return true;
+        }
+        // ↑/↓ → scroll output files
+        if (ke.isUp()) {
+            summaryScrollOffset = Math.max(0, summaryScrollOffset - 1);
+            return true;
+        }
+        if (ke.isDown()) {
+            int maxOffset = Math.max(0, summaryReport.results().size() - 1);
+            summaryScrollOffset = Math.min(maxOffset, summaryScrollOffset + 1);
             return true;
         }
         return false;
@@ -632,7 +653,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             }
             case SUMMARY -> {
                 if (summaryReport != null) {
-                    SummaryScreen.render(frame, area, summaryReport);
+                    SummaryScreen.render(frame, area, summaryReport, summaryScrollOffset);
                 }
             }
             case ERROR -> {

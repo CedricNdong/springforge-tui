@@ -216,7 +216,10 @@ public class GenerateCommand implements Callable<Integer> {
             generatedFiles, config.conflictStrategy(), config.outputBasePath());
 
         TuiRenderer tuiRenderer = new PlainCliRenderer();
-        tuiRenderer.showSummary(report);
+        tuiRenderer.showSummary(report, new TuiRenderer.SummaryCallbacks() {
+            @Override public void onGenerateMore() { }
+            @Override public void onQuit() { }
+        });
 
         return report.errorFiles() > 0
             ? ExitCodes.FILE_WRITE_ERROR
@@ -496,10 +499,21 @@ public class GenerateCommand implements Callable<Integer> {
         GenerationReport report = new GenerationReport(
             files.size(), created, skipped, errors, results, duration);
 
-        // Show summary — blocks until user quits
-        tui.showSummary(report);
+        // Show summary — blocks until user chooses
+        AtomicReference<TuiFlowStep> nextStep = new AtomicReference<>(TuiFlowStep.DONE);
+        tui.showSummary(report, new TuiRenderer.SummaryCallbacks() {
+            @Override
+            public void onGenerateMore() {
+                nextStep.set(TuiFlowStep.ENTITY_SELECTION);
+            }
 
-        return TuiFlowStep.DONE;
+            @Override
+            public void onQuit() {
+                nextStep.set(TuiFlowStep.DONE);
+            }
+        });
+
+        return nextStep.get();
     }
 
     enum TuiFlowStep {
