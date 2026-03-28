@@ -259,14 +259,9 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             }
             return true;
         }
-        // Enter → confirm selection
-        if (ke.isConfirm()) {
-            if (entitySelectionState.hasSelection()) {
-                entityCallbacks.onConfirm(entitySelectionState.selectedEntities());
-                completeScreen();
-            }
-            return true;
-        }
+        // Enter is intentionally NOT mapped here — only [Tab] and [Ctrl+G]
+        // advance to the next screen, as shown in the footer. This prevents
+        // a double-Enter from leaking into the next screen (S3).
         // ↑/↓ Navigation
         if (ke.isUp()) {
             entitySelectionState = entitySelectionState.moveFocusUp();

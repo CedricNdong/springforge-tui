@@ -206,7 +206,7 @@ public final class EntitySelectionScreen {
         Line leftLine = Line.from(
             Span.raw(" [↑↓]").bold().yellow(),
             Span.raw(" Nav ").dim(),
-            Span.raw("[Space]").bold().yellow(),
+            Span.raw("[Space / Enter]").bold().yellow(),
             Span.raw(" Toggle ").dim(),
             Span.raw("[A]").bold().yellow(),
             Span.raw(" All ").dim(),
