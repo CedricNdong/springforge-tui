@@ -70,15 +70,6 @@ public final class LayerConfigScreen {
                 Span.raw(" \u2699 SpringForge ").bold().cyan(),
                 Span.raw("\u2014 Layer Configuration ").white()
             )))
-            .titleBottom(Title.from(Line.from(
-                Span.raw(" \uD83D\uDCE6 Entities: ").dim(),
-                Span.raw(String.valueOf(state.entityCount())).cyan(),
-                Span.raw(" | \uD83D\uDCC2 Layers: ").dim(),
-                Span.raw(String.valueOf(state.selectedLayers().size())).cyan(),
-                Span.raw(" | \uD83D\uDCC4 Files: ~").dim(),
-                Span.raw(String.valueOf(state.estimatedFileCount())).cyan(),
-                Span.raw(" ")
-            )))
             .build();
 
         frame.renderWidget(header, area);
@@ -118,6 +109,15 @@ public final class LayerConfigScreen {
                 .borderStyle(Style.EMPTY.fg(Color.GREEN))
                 .title(Title.from(Line.from(
                     Span.raw(" \uD83D\uDCC2 Layers to Generate ").bold()
+                )))
+                .titleBottom(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCE6 Entities: ").dim(),
+                    Span.raw(String.valueOf(state.entityCount())).cyan(),
+                    Span.raw(" | \uD83D\uDCC2 Layers: ").dim(),
+                    Span.raw(String.valueOf(state.selectedLayers().size())).cyan(),
+                    Span.raw(" | \uD83D\uDCC4 Files: ~").dim(),
+                    Span.raw(String.valueOf(state.estimatedFileCount())).cyan(),
+                    Span.raw(" ")
                 )))
                 .build())
             .build();
