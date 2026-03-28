@@ -1,9 +1,7 @@
 package dev.springforge.tui.screens;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import dev.springforge.engine.model.GeneratedFile;
 import dev.springforge.tui.state.PreviewState;
@@ -36,7 +34,8 @@ public final class PreviewScreen {
 
     private PreviewScreen() {}
 
-    public static void render(Frame frame, Rect area, PreviewState state, TreeState treeState) {
+    public static void render(Frame frame, Rect area, PreviewState state,
+            TreeState treeState, List<TreeNode<GeneratedFile>> roots) {
         List<Rect> mainLayout = Layout.vertical()
             .constraints(
                 Constraint.length(3),
@@ -54,7 +53,7 @@ public final class PreviewScreen {
             )
             .split(mainLayout.get(1));
 
-        renderFileTree(frame, contentLayout.get(0), state, treeState);
+        renderFileTree(frame, contentLayout.get(0), state, treeState, roots);
         renderCodePreview(frame, contentLayout.get(1), state);
         renderFooter(frame, mainLayout.get(2));
     }
@@ -68,18 +67,13 @@ public final class PreviewScreen {
                 Span.raw(" \uD83D\uDC41 SpringForge ").bold().cyan(),
                 Span.raw("\u2014 Code Preview ").white()
             )))
-            .titleBottom(Title.from(Line.from(
-                Span.raw(" \uD83D\uDCC4 ").dim(),
-                Span.raw(String.valueOf(state.files().size())).cyan(),
-                Span.raw(" files ready to generate ").dim()
-            )))
             .build();
 
         frame.renderWidget(header, area);
     }
 
     private static void renderFileTree(Frame frame, Rect area, PreviewState state,
-            TreeState treeState) {
+            TreeState treeState, List<TreeNode<GeneratedFile>> roots) {
         List<GeneratedFile> files = state.files();
 
         if (files.isEmpty()) {
@@ -96,27 +90,6 @@ public final class PreviewScreen {
                 .build();
             frame.renderWidget(empty, area);
             return;
-        }
-
-        // Group files by entity name
-        Map<String, List<GeneratedFile>> grouped = new LinkedHashMap<>();
-        for (GeneratedFile file : files) {
-            grouped.computeIfAbsent(file.entityName(), k -> new ArrayList<>()).add(file);
-        }
-
-        // Build tree nodes: one root per entity, file leaves underneath
-        List<TreeNode<GeneratedFile>> roots = new ArrayList<>();
-        for (Map.Entry<String, List<GeneratedFile>> entry : grouped.entrySet()) {
-            TreeNode<GeneratedFile> entityNode = TreeNode.of(
-                "\uD83D\uDCE6 " + entry.getKey());
-            for (GeneratedFile file : entry.getValue()) {
-                String fileName = file.outputPath().getFileName().toString();
-                entityNode.add(
-                    TreeNode.of(getFileIcon(fileName) + " " + fileName, file).leaf()
-                );
-            }
-            entityNode.expanded();
-            roots.add(entityNode);
         }
 
         TreeWidget<TreeNode<GeneratedFile>> tree = TreeWidget.<TreeNode<GeneratedFile>>builder()
@@ -137,6 +110,11 @@ public final class PreviewScreen {
                     Span.raw(" \uD83D\uDCC2 Files (").bold(),
                     Span.raw(String.valueOf(files.size())).cyan(),
                     Span.raw(") ").bold()
+                )))
+                .titleBottom(Title.from(Line.from(
+                    Span.raw(" \uD83D\uDCC4 ").dim(),
+                    Span.raw(String.valueOf(files.size())).cyan(),
+                    Span.raw(" files ready to generate ").dim()
                 )))
                 .build())
             .scrollbar()

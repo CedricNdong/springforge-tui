@@ -1,8 +1,13 @@
 package dev.springforge.tui;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import dev.springforge.engine.model.GeneratedFile;
 import dev.springforge.engine.model.GenerationReport;
 import dev.springforge.engine.model.Layer;
 import dev.springforge.tui.screens.EntitySelectionScreen;
@@ -28,6 +33,7 @@ import dev.tamboui.tui.TuiRunner;
 import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 import dev.tamboui.tui.event.TickEvent;
+import dev.tamboui.widgets.tree.TreeNode;
 import dev.tamboui.widgets.tree.TreeState;
 
 /**
@@ -72,6 +78,8 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
 
     // Tree state for preview file tree (mutable, managed by TreeWidget)
     private TreeState previewTreeState;
+    // Tree roots for expand/collapse operations
+    private List<TreeNode<GeneratedFile>> previewTreeRoots;
 
     // Latch to block show*() callers until the screen is completed
     private final AtomicReference<CountDownLatch> screenLatch = new AtomicReference<>();
@@ -162,6 +170,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
         this.previewState = state;
         this.previewCallbacks = callbacks;
         this.previewTreeState = new TreeState();
+        this.previewTreeRoots = buildTreeRoots(state.files());
         blockOnScreen(ScreenType.PREVIEW);
     }
 
@@ -410,8 +419,23 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             return true;
         }
         if (ke.isDown()) {
-            previewTreeState.selectNext(previewState.files().size() + countEntities() - 1);
+            previewTreeState.selectNext(countVisibleNodes() - 1);
             syncSelectedFileFromTree();
+            return true;
+        }
+        // → expand / ← collapse selected tree node
+        if (ke.isRight()) {
+            TreeNode<GeneratedFile> node = findSelectedNode();
+            if (node != null && !node.isLeaf() && !node.isExpanded()) {
+                node.expanded(true);
+            }
+            return true;
+        }
+        if (ke.isLeft()) {
+            TreeNode<GeneratedFile> node = findSelectedNode();
+            if (node != null && !node.isLeaf() && node.isExpanded()) {
+                node.expanded(false);
+            }
             return true;
         }
         // j/k → scroll code preview (vim-style)
@@ -440,49 +464,89 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
     }
 
     /**
-     * Count unique entity names for tree node calculation.
+     * Sync selectedFileIndex from the tree state selection.
+     * Walks the tree roots respecting expanded/collapsed state
+     * to map the flat selection index to a file index.
      */
-    private int countEntities() {
-        return (int) previewState.files().stream()
-            .map(f -> f.entityName())
-            .distinct()
-            .count();
+    private void syncSelectedFileFromTree() {
+        int target = previewTreeState.selected();
+        int flatIndex = 0;
+        int fileIndex = 0;
+        for (TreeNode<GeneratedFile> root : previewTreeRoots) {
+            if (flatIndex == target) {
+                // Selected an entity group node — show first file of this group
+                previewState = previewState.withSelectedFileIndex(fileIndex);
+                return;
+            }
+            flatIndex++;
+            if (root.isExpanded()) {
+                for (TreeNode<GeneratedFile> child : root.children()) {
+                    if (flatIndex == target) {
+                        previewState = previewState.withSelectedFileIndex(fileIndex);
+                        return;
+                    }
+                    flatIndex++;
+                    fileIndex++;
+                }
+            } else {
+                fileIndex += root.children().size();
+            }
+        }
     }
 
     /**
-     * Sync selectedFileIndex from the tree state selection.
-     * Tree flat entries include entity group nodes (non-leaf) and file nodes (leaf).
-     * We map the tree selection index to the corresponding file index.
+     * Build tree roots from generated files, grouped by entity name.
      */
-    private void syncSelectedFileFromTree() {
-        int treeIndex = previewTreeState.selected();
-        // The tree is flattened as: [entity1, file1, file2, ..., entity2, file3, ...]
-        // Entity nodes don't correspond to files, so we need to map.
-        int fileIndex = -1;
+    private List<TreeNode<GeneratedFile>> buildTreeRoots(List<GeneratedFile> files) {
+        Map<String, List<GeneratedFile>> grouped = new LinkedHashMap<>();
+        for (GeneratedFile file : files) {
+            grouped.computeIfAbsent(file.entityName(), k -> new ArrayList<>()).add(file);
+        }
+        List<TreeNode<GeneratedFile>> roots = new ArrayList<>();
+        for (Map.Entry<String, List<GeneratedFile>> entry : grouped.entrySet()) {
+            TreeNode<GeneratedFile> entityNode = TreeNode.of(
+                "\uD83D\uDCE6 " + entry.getKey());
+            for (GeneratedFile file : entry.getValue()) {
+                String fileName = file.outputPath().getFileName().toString();
+                entityNode.add(TreeNode.of(fileName, file).leaf());
+            }
+            entityNode.expanded(false);
+            roots.add(entityNode);
+        }
+        return roots;
+    }
+
+    /**
+     * Find the TreeNode corresponding to the current tree selection.
+     */
+    private TreeNode<GeneratedFile> findSelectedNode() {
+        int target = previewTreeState.selected();
         int flatIndex = 0;
-        int entityCount = 0;
-        String currentEntity = "";
-        for (int i = 0; i < previewState.files().size(); i++) {
-            String entity = previewState.files().get(i).entityName();
-            if (!entity.equals(currentEntity)) {
-                if (flatIndex == treeIndex) {
-                    // Selected an entity group node — show first file of this group
-                    previewState = previewState.withSelectedFileIndex(i);
-                    return;
-                }
-                currentEntity = entity;
-                flatIndex++;
-                entityCount++;
-            }
-            if (flatIndex == treeIndex) {
-                fileIndex = i;
-                break;
-            }
+        for (TreeNode<GeneratedFile> root : previewTreeRoots) {
+            if (flatIndex == target) return root;
             flatIndex++;
+            if (root.isExpanded()) {
+                for (TreeNode<GeneratedFile> child : root.children()) {
+                    if (flatIndex == target) return child;
+                    flatIndex++;
+                }
+            }
         }
-        if (fileIndex >= 0) {
-            previewState = previewState.withSelectedFileIndex(fileIndex);
+        return null;
+    }
+
+    /**
+     * Count visible nodes (respecting expanded/collapsed state).
+     */
+    private int countVisibleNodes() {
+        int count = 0;
+        for (TreeNode<GeneratedFile> root : previewTreeRoots) {
+            count++; // entity group node
+            if (root.isExpanded()) {
+                count += root.children().size();
+            }
         }
+        return count;
     }
 
     // ── Summary (S6) ─────────────────────────────────────────────────
@@ -542,7 +606,7 @@ public class TamboUiRenderer implements TuiRenderer, AutoCloseable {
             }
             case PREVIEW -> {
                 if (previewState != null) {
-                    PreviewScreen.render(frame, area, previewState, previewTreeState);
+                    PreviewScreen.render(frame, area, previewState, previewTreeState, previewTreeRoots);
                 }
             }
             case PROGRESS -> {
