@@ -14,6 +14,22 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────
+  # 0. Enforce Gitflow: only develop → main
+  # ──────────────────────────────────────────────
+  enforce-gitflow:
+    name: Enforce Gitflow
+    runs-on: ubuntu-24.04
+    if: github.base_ref == 'main'
+    steps:
+      - name: Check source branch
+        run: |
+          if [[ "${{ github.head_ref }}" != "develop" ]]; then
+            echo "❌ Only 'develop' can be merged into 'main'."
+            echo "Please target 'develop' instead."
+            exit 1
+          fi
+
+  # ──────────────────────────────────────────────
   # 1. Compile all modules + upload build artifacts
   # ──────────────────────────────────────────────
   compile:
