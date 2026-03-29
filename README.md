@@ -1,6 +1,6 @@
 # SpringForge TUI
 
-> *"The full power of IntelliJ Auto API Generator — in your terminal, for every developer, on every machine."*
+> *"The full power of API Generator — in your terminal, for every developer, on every machine."*
 
 [![Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/CedricNdong/springforge-tui)
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/projects/jdk/21/)
@@ -12,7 +12,7 @@
 
 SpringForge TUI is a **terminal-first, IDE-agnostic CLI tool** that parses your Spring Boot `@Entity` classes and generates a complete, production-ready API stack in seconds.
 
-No IntelliJ required. Works on VS Code, Neovim, remote servers, and CI/CD pipelines.
+No special IDE required. Works on VS Code, Neovim, remote servers, and CI/CD pipelines.
 
 ### What it generates
 
@@ -23,7 +23,8 @@ From your `@Entity` classes, SpringForge generates:
 - Repository (Spring Data JPA)
 - Service + ServiceImpl with full CRUD
 - REST Controller with pagination
-- Liquibase / Flyway migration script
+- File Upload Controller
+- Liquibase migration (XML) / Flyway migration (SQL)
 
 Handles `@ManyToOne`, `@OneToMany`, `@ManyToMany`, `@OneToOne`, circular references, Lombok detection, and Spring Boot 2/3 namespace switching.
 
@@ -159,32 +160,31 @@ springforge generate --all --dry-run
 Create a `springforge.yml` at your project root:
 
 ```yaml
-basePackage: com.example.myapp
-output:
-  directory: src/main/java
+version: "1.0"
+
+project:
+  basePackage: com.example.myapp
+  srcDir: src/main/java
+  resourceDir: src/main/resources
+  springBootVersion: "3"          # "2" or "3"
+
 generation:
-  mapper: mapstruct       # mapstruct | modelmapper
-  migration: liquibase    # liquibase | flyway | none
-  openapi: yaml           # yaml | json | none
-  onConflict: skip        # skip | overwrite
+  mapperLib: mapstruct            # mapstruct | modelmapper
+  migrationTool: none             # liquibase | flyway | none
+  openApiFormat: none             # yaml | json | none
+  onConflict: skip                # skip | overwrite
   lombok: true
-  mybatis: false
+
+naming:
+  apiPrefix: /api
+  apiVersion: v1
 ```
 
 Config resolution order (highest to lowest priority):
 1. CLI flags
-2. `springforge.yml` in project root
-3. `~/.springforge/springforge.yml` (global)
+2. `--config <path>` — explicitly passed config file
+3. `./springforge.yml` in project root
 4. Built-in defaults
-
----
-
-## Documentation
-
-| Document | Description |
-|---|---|
-| [PRD](docs/PRD.md) | Product requirements, features, milestones |
-| [Technical Design](docs/TECHNICAL_SPEC.md) | Architecture, data models, implementation details |
 
 ---
 
@@ -204,6 +204,9 @@ Config resolution order (highest to lowest priority):
 
 # Run locally via Gradle
 ./gradlew :springforge-cli:run --args="generate --help"
+
+# Run spike command (proof-of-concept)
+./gradlew :springforge-cli:run --args="spike path/to/Entity.java"
 ```
 
 ### Build distributable artifacts
@@ -222,13 +225,12 @@ Config resolution order (highest to lowest priority):
 
 ```
 springforge-tui/
-├── springforge-cli/          # Picocli commands, entry points
-├── springforge-tui-screens/  # TUI screen implementations
-├── springforge-engine/       # Core: scanner, parser, renderer, writer
-├── springforge-templates/    # Mustache templates (built-in)
-├── springforge-config/       # springforge.yml parsing
-├── springforge-native/       # GraalVM native-image config
-└── springforge-integration-tests/  # E2E tests with Testcontainers
+├── springforge-cli/               ← Picocli commands, entry points
+├── springforge-tui-screens/       ← TamboUI screen implementations + TuiRenderer interface
+├── springforge-engine/            ← Core generation logic (scanner, parser, renderer, writer)
+├── springforge-templates/         ← Mustache templates (11 built-in)
+├── springforge-config/            ← springforge.yml parsing + config resolution
+└── springforge-integration-tests/ ← E2E tests with Testcontainers PostgreSQL
 ```
 
 ---

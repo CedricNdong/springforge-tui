@@ -1,25 +1,31 @@
 # SpringForge TUI — Product Requirements Document (PRD)
 
-**Version:** 2.0  
-**Date:** March 2026  
-**Status:** Revised — Review corrections applied  
-**Author:** Product / Architecture Team  
+**Version:** 2.1
+**Date:** March 28, 2026
+**Status:** In Progress — M3 TUI complete, M4 CLI complete, M6 Integration tests complete
+**Author:** Product / Architecture Team
 **Stack:** Java 21, TamboUI, Picocli, JavaParser, GraalVM Native
 
-> **Changelog v1 → v2:**  
-> - Fixed config resolution order (was backwards)  
-> - Added TamboUI SNAPSHOT mitigation plan  
-> - Promoted GraalVM + TamboUI spike to Week 1 blocker  
-> - Resolved Java version contradiction → Java 21 LTS  
-> - Defined `--all` flag in CLI spec  
-> - Added regeneration story to Non-Goals  
-> - Closed OpenAPI open question (decision already made in engine spec)  
-> - Specified DTO strategy for circular relationships  
-> - Added test matrix  
-> - Triaged open questions as blockers vs. non-blockers  
-> - Added outcome-oriented success metrics  
-> - Downgraded PATCH to P1  
-> - Extracted implementation details to separate Tech Design Doc  
+> **Changelog v1 → v2:**
+> - Fixed config resolution order (was backwards)
+> - Added TamboUI SNAPSHOT mitigation plan
+> - Promoted GraalVM + TamboUI spike to Week 1 blocker
+> - Resolved Java version contradiction → Java 21 LTS
+> - Defined `--all` flag in CLI spec
+> - Added regeneration story to Non-Goals
+> - Closed OpenAPI open question (decision already made in engine spec)
+> - Specified DTO strategy for circular relationships
+> - Added test matrix
+> - Triaged open questions as blockers vs. non-blockers
+> - Added outcome-oriented success metrics
+> - Downgraded PATCH to P1
+> - Extracted implementation details to separate Tech Design Doc
+>
+> **Changelog v2 → v2.1 (March 28, 2026):**
+> - Updated TUI screen specs to match actual implementation
+> - Updated Layer enum documentation (LIQUIBASE/FLYWAY separate layers, no OPENAPI layer yet)
+> - Added current implementation status appendix (Section 15)
+> - Updated keyboard shortcuts to reflect per-screen actual bindings
 
 ---
 
@@ -254,71 +260,100 @@ springforge generate --all-entities --all --no-tui --overwrite
 > Full widget details, state models, and TamboUI implementation notes live in the **Tech Design Doc**.  
 > This section defines screens, user flows, and acceptance criteria only.
 
-### 6.1 Global Keyboard Shortcuts
+### 6.1 Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `Tab` / `Shift+Tab` | Move focus between panels |
-| `↑` / `↓` | Navigate within a list |
-| `Enter` | Confirm / select |
-| `Space` | Toggle checkbox |
-| `Esc` | Go back / cancel |
-| `q` | Quit (with confirmation if generation in progress) |
-| `?` | Show help overlay |
-| `Ctrl+G` | Start generation from any screen |
-| `Ctrl+P` | Open code preview panel |
+Keyboard shortcuts are **per-screen**, not global. Each screen's footer displays available commands.
+
+**Common patterns across screens:**
+
+| Key | Action | Screens |
+|-----|--------|---------|
+| `↑` / `↓` | Navigate within a list | S2, S3, S4 |
+| `Space` | Toggle checkbox / selection | S2, S3 |
+| `Tab` | Advance to next screen | S1, S2, S3, S4 |
+| `←` (Left arrow) | Go back to previous screen | S3, S4 |
+| `Ctrl+G` | Start generation immediately | S2, S3, S4 |
+| `q` | Quit | S2, S6 |
+| `?` | Toggle help overlay | S2 |
+
+**Per-screen shortcuts:**
+
+| Screen | Keys |
+|--------|------|
+| S1 — Splash | Any key to continue after scan |
+| S2 — Entity Selection | `↑/↓` navigate, `Space` toggle, `A` select all, `N` select none, `/` filter, `Tab` next, `Ctrl+G` generate, `?` help, `q` quit |
+| S3 — Layer Config | `↑/↓` navigate layers, `Space` toggle layer, `←` back, `Tab` preview, `Ctrl+G` generate |
+| S4 — Code Preview | `↑/↓` select file, `PgUp/PgDn` scroll, `←` back, `Ctrl+G` generate |
+| S5 — Progress | No user input (auto-advances to S6 or error screen) |
+| S6 — Summary | `q` quit, `g` generate more |
+| Error | `R` retry, `S` skip, `Q` quit (retry/skip only when `canRetry`) |
 
 ### 6.2 Screen Flow
 
 ```
 Launch
-  └─► [S1] Splash / Scan
-        └─► [S2] Entity Selection
-              └─► [S3] Layer Configuration
-                    └─► [S4] Code Preview
-                          └─► [S5] Generation Progress
-                                └─► [S6] Summary
+  └─► [S1] Splash / Scan ──(any key)──► [S2] Entity Selection
+                                              │
+                                              ├──(Tab)──► [S3] Layer Configuration
+                                              │                   │
+                                              │                   ├──(Tab)──► [S4] Code Preview
+                                              │                   │                   │
+                                              │                   │                   └──(Ctrl+G)──► [S5] Progress
+                                              │                   │                                       │
+                                              │                   └──(Ctrl+G)──► [S5] Progress ──► [S6] Summary
+                                              │
+                                              └──(Ctrl+G)──► [S5] Progress ──► [S6] Summary
 ```
 
-Any screen → `Ctrl+G` → skips to S5 with current config  
-Any screen → `?` → Help overlay (modal)  
-Any screen → fatal error → Error screen
+- `Ctrl+G` from S2, S3, or S4 skips directly to S5 (Generation Progress)
+- `←` from S3 goes back to S2; `←` from S4 goes back to S3
+- `?` toggles help overlay on S2 only
+- Fatal errors during generation → Error screen (S8) with retry/skip/quit
 
 ### 6.3 Screen Acceptance Criteria
 
 **S1 — Splash / Scan**
-- Shows ASCII logo and progress bar during project scan
-- Auto-advances to S2 when scan completes
-- Shows error screen if scan fails with actionable message
+- Shows ASCII logo (cyan) and progress bar during project scan
+- Displays "Found N entity files" and "Press any key to continue..." when scan completes
+- User presses any key to advance to S2
+- Shows error message in red if scan fails
 
 **S2 — Entity Selection**
-- Lists all discovered `@Entity` classes with checkboxes
-- Detail panel shows fields, types, annotations, and relationships for focused entity
-- `A` / `N` selects or deselects all
-- `Ctrl+F` opens fuzzy search / filter
-- Proceeds only if ≥ 1 entity selected; shows inline warning otherwise
+- Two-panel layout: entity list with checkboxes (40%) + entity detail panel (60%)
+- Detail panel shows: package, namespace, Lombok status, fields with types and annotations
+- `A` / `N` selects or deselects all; `/` opens filter input
+- `?` toggles help overlay listing all keyboard shortcuts
+- `Tab` advances to S3 (Layer Config); `Ctrl+G` skips to generation
+- Footer shows selected entity count
 
 **S3 — Layer Configuration**
-- Checkboxes for all generation layers
-- Radio groups for: Spring version, mapper lib, migration tool, OpenAPI format, conflict strategy
-- Footer shows live count: entities selected × layers × estimated file count
+- Two-panel layout: layer checkboxes (45%) + options panel (55%)
+- 10 layers listed: DTO (Request), DTO (Response), Mapper, Repository, Service, ServiceImpl, Controller, File Upload, Liquibase Migration, Flyway Migration
+- Options panel: radio groups for Spring version (2.x/3.x), mapper lib (MapStruct/ModelMapper), conflict strategy (Skip/Overwrite)
+- Footer shows: entity count, selected layer count, estimated file count (entities × layers)
 
 **S4 — Code Preview**
-- File tree (left) — entity → generated files hierarchy
-- Code preview (right) — syntax-highlighted content of selected file
+- Two-panel layout: file list (30%) + code preview (70%)
+- File list grouped by entity name with `>>` marker on selected file
+- Code preview with line numbers and basic syntax highlighting (annotations, keywords, comments)
+- Scrollable preview panel via `PgUp`/`PgDn`
 - Preview renders from templates in-memory; no files written yet
-- Scrollable preview panel
 
 **S5 — Generation Progress**
-- Overall progress bar (files written / total)
-- Per-file status log: ✅ done / ⏳ in progress / ⚠️ skipped / ❌ error
+- Header shows status: "Generating...", "Complete!", or "Completed with errors"
+- Overall progress bar with percentage and file count
+- Current file display
+- Per-file status log: `[OK]` created / `[SKIP]` skipped / `[ERR]` error
 - Auto-advances to S6 on completion
-- Stays on screen on error with `[R]` retry / `[S]` skip options
 
 **S6 — Summary**
-- Counts: files created / skipped / errored
-- Output directory tree
-- Actions: open output dir, copy path, generate more, quit
+- Stats: total files, created, skipped, errors, duration
+- File list with per-file status icons (`[OK]`/`[SKIP]`/`[ERR]`)
+- Footer: `[q]` quit, `[g]` generate more
+
+**S8 — Error Screen**
+- Error message and file path (if applicable)
+- Actions: `[R]` retry, `[S]` skip, `[Q]` quit (retry/skip only when `canRetry` is true)
 
 ---
 
@@ -335,19 +370,21 @@ Both produce an identical internal `EntityDescriptor` model. See Tech Design Doc
 
 ### 7.2 Generated Files Per Entity
 
-| Layer | File | Output path |
+| Layer (enum) | File | Output path |
 |-------|------|-------------|
-| DTO Request | `{Entity}RequestDto.java` | `dto/` |
-| DTO Response | `{Entity}ResponseDto.java` | `dto/` |
-| Mapper | `{Entity}Mapper.java` | `mapper/` |
-| Repository | `{Entity}Repository.java` | `repository/` |
-| Service Interface | `{Entity}Service.java` | `service/` |
-| Service Impl | `{Entity}ServiceImpl.java` | `service/impl/` |
-| Controller | `{Entity}Controller.java` | `controller/` |
-| File Upload Controller | `{Entity}FileController.java` | `controller/` |
-| Liquibase migration | `V{timestamp}__create_{entity}.xml` | `resources/db/changelog/` |
-| Flyway migration | `V{timestamp}__create_{entity}.sql` | `resources/db/migration/` |
-| OpenAPI spec | `openapi.yaml` (one merged file for all entities) | `resources/` |
+| `DTO_REQUEST` | `{Entity}RequestDto.java` | `dto/` |
+| `DTO_RESPONSE` | `{Entity}ResponseDto.java` | `dto/` |
+| `MAPPER` | `{Entity}Mapper.java` | `mapper/` |
+| `REPOSITORY` | `{Entity}Repository.java` | `repository/` |
+| `SERVICE` | `{Entity}Service.java` | `service/` |
+| `SERVICE_IMPL` | `{Entity}ServiceImpl.java` | `service/impl/` |
+| `CONTROLLER` | `{Entity}Controller.java` | `controller/` |
+| `FILE_UPLOAD` | `{Entity}FileController.java` | `controller/` |
+| `LIQUIBASE` | `V{timestamp}__create_{entity}.xml` | `resources/db/changelog/` |
+| `FLYWAY` | `V{timestamp}__create_{entity}.sql` | `resources/db/migration/` |
+
+> **Note:** Liquibase and Flyway are separate layers in the `Layer` enum (not a single `MIGRATION` layer).
+> OpenAPI spec generation is defined in the CLI flags but does not yet have a corresponding `Layer` enum entry — planned for a future milestone.
 
 ### 7.3 Controller — Generated Endpoints
 
@@ -389,38 +426,27 @@ One merged `openapi.yaml` (or `openapi.json`) is generated covering all selected
 ### 8.1 `springforge.yml` Schema
 
 ```yaml
-springforge:
-  version: "1.0"
+version: "1.0"
 
-  project:
-    basePackage: com.example
-    srcDir: src/main/java
-    resourceDir: src/main/resources
-    springBootVersion: "3"        # "2" or "3"
+project:
+  basePackage: com.example
+  srcDir: src/main/java
+  resourceDir: src/main/resources
+  springBootVersion: "3"        # "2" or "3"
 
-  generation:
-    mapperLib: mapstruct           # mapstruct | modelmapper
-    migrationTool: liquibase       # liquibase | flyway | none
-    openApiFormat: yaml            # yaml | json | none
-    onConflict: skip               # skip | overwrite
-    lombok: true
-    mybatis: false
+generation:
+  mapperLib: mapstruct           # mapstruct | modelmapper
+  migrationTool: none            # liquibase | flyway | none
+  openApiFormat: none            # yaml | json | none
+  onConflict: skip               # skip | overwrite
+  lombok: true
 
-  naming:
-    dtoSuffix: "Dto"
-    serviceSuffix: "Service"
-    controllerSuffix: "Controller"
-    repositorySuffix: "Repository"
-    apiPrefix: "/api"
-    apiVersion: "v1"
-
-  packages:
-    dto: "${basePackage}.dto"
-    mapper: "${basePackage}.mapper"
-    repository: "${basePackage}.repository"
-    service: "${basePackage}.service"
-    controller: "${basePackage}.controller"
+naming:
+  apiPrefix: "/api"
+  apiVersion: "v1"
 ```
+
+> **Note:** The config file can optionally be wrapped in a `springforge:` key. Unknown fields are silently ignored for forward compatibility. Package paths (dto, mapper, etc.) are derived from `basePackage` in `GenerationConfig`.
 
 ---
 
@@ -476,21 +502,21 @@ springforge:
 
 ### 9.3 TUI
 
-| ID | Priority | Requirement |
-|----|----------|-------------|
-| F-TUI-01 | P0 | Splash screen with project scan progress |
-| F-TUI-02 | P0 | Entity selection screen with checkboxes and detail panel |
-| F-TUI-03 | P0 | Layer configuration screen with all generation options |
-| F-TUI-04 | P0 | Code preview screen with file tree and syntax-highlighted content |
-| F-TUI-05 | P0 | Generation progress screen with per-file status |
-| F-TUI-06 | P0 | Summary screen with output directory tree |
-| F-TUI-07 | P0 | Help overlay from any screen via `?` |
-| F-TUI-08 | P0 | Error screen with retry / skip options |
-| F-TUI-09 | P0 | Keyboard-only navigation |
-| F-TUI-10 | P0 | Auto-fallback to `--no-tui` mode when dumb terminal detected |
-| F-TUI-11 | P1 | Fuzzy search / filter on entity list |
-| F-TUI-12 | P1 | Theme switching (dark / light) via TCSS |
-| F-TUI-13 | P2 | Mouse support for click navigation |
+| ID | Priority | Requirement | Status |
+|----|----------|-------------|--------|
+| F-TUI-01 | P0 | Splash screen with project scan progress | **Done** |
+| F-TUI-02 | P0 | Entity selection screen with checkboxes and detail panel | **Done** |
+| F-TUI-03 | P0 | Layer configuration screen with all generation options | **Done** |
+| F-TUI-04 | P0 | Code preview screen with file list and code preview | **Done** |
+| F-TUI-05 | P0 | Generation progress screen with per-file status | **Done** |
+| F-TUI-06 | P0 | Summary screen with file list and stats | **Done** |
+| F-TUI-07 | P0 | Help overlay on entity selection via `?` | **Done** (S2 only) |
+| F-TUI-08 | P0 | Error screen with retry / skip options | **Done** |
+| F-TUI-09 | P0 | Keyboard-only navigation | **Done** |
+| F-TUI-10 | P0 | Auto-fallback to `--no-tui` mode when dumb terminal detected | **Done** |
+| F-TUI-11 | P1 | Filter on entity list via `/` | **Done** |
+| F-TUI-12 | P1 | Theme switching (dark / light) via TCSS | Not started |
+| F-TUI-13 | P2 | Mouse support for click navigation | Not started |
 
 ### 9.4 CLI
 
@@ -606,12 +632,12 @@ Not all configuration combinations can be fully integration-tested in v1. The fo
 
 ### 🔴 Must Resolve Before Development Starts
 
-| # | Question | Why It Blocks |
-|---|----------|---------------|
-| OQ-1 | Does TamboUI + Picocli + JavaParser compile to a working GraalVM native binary? | Determines if G11 is achievable. **Resolved by Week 1 spike.** |
-| OQ-2 | Which commit hash of TamboUI do we pin for M3? | Must be decided at M3 kickoff to avoid API drift mid-sprint |
-| OQ-3 | Does SpringForge auto-detect Spring Boot version from `pom.xml` / `build.gradle`? | Affects CLI spec and config schema. Simplifies UX significantly if yes. |
-| OQ-4 | What is the PATCH generation strategy? (null-check, JSON Merge Patch, Optional fields) | Required before implementing F-GEN-16. Decide before M2 ends. |
+| # | Question | Why It Blocks | Status |
+|---|----------|---------------|--------|
+| OQ-1 | Does TamboUI + Picocli + JavaParser compile to a working GraalVM native binary? | Determines if G11 is achievable. | **Resolved** — Week 1 spike passed (SpikeCommand) |
+| OQ-2 | Which commit hash of TamboUI do we pin for M3? | Must be decided at M3 kickoff to avoid API drift mid-sprint | **Resolved** — pinned to v0.2.0-SNAPSHOT |
+| OQ-3 | Does SpringForge auto-detect Spring Boot version from `pom.xml` / `build.gradle`? | Affects CLI spec and config schema. | Open — deferred to M5 |
+| OQ-4 | What is the PATCH generation strategy? (null-check, JSON Merge Patch, Optional fields) | Required before implementing F-GEN-16. | Open — P1 feature, not yet started |
 
 ### 🟡 Can Decide During or After v1
 
@@ -622,3 +648,67 @@ Not all configuration combinations can be fully integration-tested in v1. The fo
 | OQ-7 | MyBatis + JPA co-existence — is there a valid use case for both simultaneously? | If yes, generate separate mapper files; if no, make them mutually exclusive in config |
 | OQ-8 | Custom template DX — validate at `springforge init` time or at generation time? | Init-time gives faster feedback; generation-time is simpler to implement |
 | OQ-9 | File conflict resolution per-file in TUI (vs. global setting)? | Power user UX improvement; adds complexity to S3 screen |
+
+---
+
+## 15. Current Implementation Status
+
+> **Last updated:** March 28, 2026
+
+### 15.1 Milestone Status
+
+| Milestone | Status | Notes |
+|-----------|--------|-------|
+| **Week 1 Spike** | **Done** | `SpikeCommand` validates TamboUI + Picocli + JavaParser in GraalVM native binary |
+| **M1 — Core Engine** | **Done** | `EntityScanner`, `JavaAstEntityParser`, `TemplateRenderer`, `BatchGenerator` (virtual threads), `CodeFileWriter` all implemented |
+| **M2 — Full Layer Stack** | **Mostly done** | 10 layers in `Layer` enum, 11 Mustache templates. OpenAPI layer defined in CLI flags but no `OPENAPI` enum entry yet |
+| **M3 — TUI (TamboUI)** | **Done** | 7 screens (S1–S6 + Error), 5 state records, `TuiRenderer` abstraction, `PlainCliRenderer` fallback, all screens use TamboUI immediate-mode rendering |
+| **M4 — CLI + Config** | **Done** | `GenerateCommand`, `InitCommand`, `PreviewCommand` all implemented. `ConfigLoader` with 4-level resolution. Exit codes defined |
+| **M5 — Native + Release** | **Not started** | `springforge-native/` module does not yet exist. GraalVM reflect-config, release workflow, install script pending |
+| **M6 — Integration Tests** | **Done** | `GeneratedCodeCompilationTest` (E2E pipeline), `CrudIntegrationTest` (Testcontainers PostgreSQL), `EdgeCaseIntegrationTest` |
+
+### 15.2 What's Implemented
+
+**Engine module (`springforge-engine`):**
+- `EntityScanner` — scans source directories for `@Entity` files with fast pre-filter
+- `JavaAstEntityParser` — AST parsing via JavaParser, circular ref detection
+- `YamlEntityParser` — YAML entity definition parsing
+- `TemplateRenderer` — Mustache template rendering
+- `BatchGenerator` — parallel generation via Java 21 virtual threads
+- `CodeFileWriter` — file writing with conflict strategy (skip/overwrite)
+- 13 model records/enums: `EntityDescriptor`, `FieldDescriptor`, `GeneratedFile`, `GenerationConfig`, `GenerationReport`, `FileGenerationResult`, `Layer`, `RelationType`, `SpringVersion`, `MapperLib`, `ConflictStrategy`, `GenerationStatus`, `SpringNamespace`
+
+**TUI module (`springforge-tui-screens`):**
+- 7 stateless screen renderers (TamboUI `Frame`/`Rect` API)
+- 6 immutable state records with builder methods
+- `TuiRenderer` interface with callback interfaces
+- `PlainCliRenderer` stdout fallback
+
+**CLI module (`springforge-cli`):**
+- `MainCommand` (Picocli entry point with global options)
+- `GenerateCommand` (full flag set: entity selection, layer selection, output options)
+- `InitCommand` (interactive config wizard)
+- `PreviewCommand` (dry-run preview to stdout)
+- `SpikeCommand` (Week 1 proof-of-concept)
+
+**Config module (`springforge-config`):**
+- `SpringForgeConfig` (YAML model with project, generation, naming sections)
+- `ConfigLoader` (4-level resolution: CLI → explicit file → local file → defaults)
+- `TelemetryManager` (opt-in anonymous usage data)
+
+**Templates module (`springforge-templates`):**
+- 11 Mustache templates: RequestDto, ResponseDto, MapstructMapper, ModelMapperConfig, Repository, Service, ServiceImpl, Controller, FileController, Liquibase, Flyway
+
+### 15.3 What's Not Yet Implemented
+
+| Feature | PRD Reference | Notes |
+|---------|---------------|-------|
+| GraalVM native binary packaging | G11, M5 | `springforge-native/` module not yet created |
+| OpenAPI spec generation layer | G8, F-GEN-14 | CLI flag exists, but no `OPENAPI` entry in `Layer` enum |
+| PATCH endpoint generation | F-GEN-16 | P1 — strategy not yet decided (OQ-4) |
+| MyBatis mapper generation | F-GEN-18 | P1 — templates not yet created |
+| Theme switching | F-TUI-12 | P1 |
+| Mouse support | F-TUI-13 | P2 |
+| Shell completion scripts | F-CLI-08 | P2 |
+| JBang / GitHub Packages distribution | Section 10 | M5 |
+| Test stubs generation | F-GEN-21, F-GEN-22 | P2 |

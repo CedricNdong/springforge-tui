@@ -47,7 +47,7 @@ springforge-tui/
 ├── springforge-engine/       ← Core generation logic (scanner, parser, renderer, writer)
 ├── springforge-templates/    ← Mustache templates (built-in)
 ├── springforge-config/       ← springforge.yml parsing + config resolution
-├── springforge-native/       ← GraalVM native-image config (reflect-config.json, etc.)
+├── springforge-native/       ← GraalVM native-image config (PLANNED — not yet created)
 └── springforge-integration-tests/ ← E2E tests with Testcontainers PostgreSQL
 ```
 

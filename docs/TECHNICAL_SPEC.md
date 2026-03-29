@@ -1,9 +1,9 @@
 # SpringForge TUI — Technical Design Document
 
-**Version:** 1.0  
-**Date:** March 2026  
-**Status:** Draft  
-**Companion document:** [SpringForge TUI PRD v2.0]  
+**Version:** 1.1
+**Date:** March 28, 2026
+**Status:** In Progress — updated to reflect actual implementation
+**Companion document:** [SpringForge TUI PRD v2.1]
 **Owner:** Engineering Team
 
 > This document covers **how** SpringForge TUI is built. The PRD covers **what** and **why**.  
@@ -157,12 +157,28 @@ public interface TuiRenderer {
     void showProgress(GenerationProgressState state);
     void showSummary(GenerationReport report);
     void showError(ErrorState state, ErrorCallbacks callbacks);
+
+    // Callback interfaces for two-way communication
+    interface EntitySelectionCallbacks {
+        void onConfirm(List<EntityDescriptor> selected);
+        void onCancel();
+    }
+    interface LayerConfigCallbacks {
+        void onConfirm(LayerConfigState config);
+        void onBack();
+    }
+    interface PreviewCallbacks { void onConfirm(); void onBack(); }
+    interface ErrorCallbacks { void onRetry(); void onSkip(); void onQuit(); }
 }
 ```
 
 Implementations:
-- `TamboUiRenderer` — full TUI via TamboUI (default)
-- `PlainCliRenderer` — stdout-only fallback (dumb terminal / `--no-tui`)
+- `PlainCliRenderer` — stdout-only fallback (dumb terminal / `--no-tui`) — **implemented**
+- `TamboUiRenderer` — full interactive TUI via TamboUI — **planned, not yet implemented**
+
+> The TUI screens (S1–S6, S8) are implemented as stateless renderers using TamboUI's `Frame`/`Rect` API.
+> They are intended to be orchestrated by a `TuiRunner` that manages the screen state machine and key event dispatch.
+> Currently, only `PlainCliRenderer` is wired into the CLI commands.
 
 ---
 
@@ -175,7 +191,10 @@ springforge-tui/                         ← root Gradle project
 │       ├── MainCommand.java
 │       ├── GenerateCommand.java
 │       ├── InitCommand.java
-│       └── PreviewCommand.java
+│       ├── PreviewCommand.java
+│       ├── SpikeCommand.java            ← Week 1 spike proof-of-concept
+│       ├── ExitCodes.java
+│       └── ManifestVersionProvider.java
 │
 ├── springforge-tui-screens/             ← TamboUI screen implementations
 │   └── src/main/java/.../tui/
@@ -188,11 +207,15 @@ springforge-tui/                         ← root Gradle project
 │       │   ├── LayerConfigScreen.java
 │       │   ├── PreviewScreen.java
 │       │   ├── ProgressScreen.java
-│       │   └── SummaryScreen.java
+│       │   ├── SummaryScreen.java
+│       │   └── ErrorScreen.java
 │       └── state/
+│           ├── SplashState.java
 │           ├── EntitySelectionState.java
 │           ├── LayerConfigState.java
-│           └── ...
+│           ├── PreviewState.java
+│           ├── GenerationProgressState.java
+│           └── ErrorState.java
 │
 ├── springforge-engine/                  ← core generation logic
 │   └── src/main/java/.../engine/
@@ -220,7 +243,7 @@ springforge-tui/                         ← root Gradle project
 │       ├── migration/
 │       └── openapi/
 │
-├── springforge-native/                  ← GraalVM configuration
+├── springforge-native/                  ← GraalVM configuration (PLANNED — not yet created)
 │   └── src/main/resources/META-INF/native-image/
 │       ├── reflect-config.json
 │       ├── resource-config.json
@@ -278,20 +301,28 @@ public record GenerationConfig(
     EnumSet<Layer> layers,
     SpringVersion springVersion,         // V2, V3
     MapperLib mapperLib,                 // MAPSTRUCT, MODEL_MAPPER
-    MigrationTool migrationTool,         // LIQUIBASE, FLYWAY, NONE
-    OpenApiFormat openApiFormat,         // YAML, JSON, NONE
     ConflictStrategy conflictStrategy,   // SKIP, OVERWRITE
     Path outputBasePath,
+    String basePackage,
     boolean dryRun,
     boolean verbose
-) {}
+) {
+    public String dtoPackage()        { return basePackage + ".dto"; }
+    public String mapperPackage()     { return basePackage + ".mapper"; }
+    public String repositoryPackage() { return basePackage + ".repository"; }
+    public String servicePackage()    { return basePackage + ".service"; }
+    public String controllerPackage() { return basePackage + ".controller"; }
+}
 
 public enum Layer {
     DTO_REQUEST, DTO_RESPONSE, MAPPER, REPOSITORY,
     SERVICE, SERVICE_IMPL, CONTROLLER, FILE_UPLOAD,
-    MIGRATION, OPENAPI
+    LIQUIBASE, FLYWAY
 }
 ```
+
+> **Note:** Liquibase and Flyway are separate `Layer` entries (not a `MIGRATION` + `MigrationTool` combo).
+> `MigrationTool` and `OpenApiFormat` enums from the PRD are handled at the CLI flag level but are not part of `GenerationConfig` — the user selects `LIQUIBASE` or `FLYWAY` directly in the layer selection.
 
 ### 4.3 GenerationReport
 
@@ -350,42 +381,46 @@ Use the **Toolkit DSL** (`ToolkitApp`) for all screens. It handles the event loo
 
 ### 5.2 Screen Base Pattern
 
+Screens are **stateless renderers** — `final` utility classes with a static `render(Frame, Rect, State)` method. They do not extend `ToolkitApp` and do not handle key events themselves. Key events are dispatched centrally by the TUI runner based on the current screen type.
+
 ```java
-public class EntitySelectionScreen extends ToolkitApp {
+// Actual screen pattern — stateless renderer
+public final class EntitySelectionScreen {
 
-    private EntitySelectionState state;
-    private final EntitySelectionCallbacks callbacks;
+    private EntitySelectionScreen() {}   // utility class, no instances
 
-    public EntitySelectionScreen(List<EntityDescriptor> entities, EntitySelectionCallbacks callbacks) {
-        this.state = new EntitySelectionState(entities, Set.of(), entities.get(0).className(), false);
-        this.callbacks = callbacks;
-    }
+    public static void render(Frame frame, Rect area, EntitySelectionState state) {
+        List<Rect> mainLayout = Layout.vertical()
+            .constraints(
+                Constraint.length(3),     // header
+                Constraint.fill(),        // content
+                Constraint.length(3)      // footer
+            )
+            .split(area);
 
-    @Override
-    protected Element render() {
-        return column(
-            header(),
-            row(
-                entityListPanel(),
-                entityDetailPanel()
-            ),
-            footer()
-        ).fillHeight();
-    }
+        renderHeader(frame, mainLayout.get(0), state);
 
-    @Override
-    public boolean onKeyEvent(KeyEvent event) {
-        return switch (event.key()) {
-            case UP    -> { state = state.moveFocusUp();   requestRedraw(); yield true; }
-            case DOWN  -> { state = state.moveFocusDown(); requestRedraw(); yield true; }
-            case SPACE -> { state = state.toggleSelected(); requestRedraw(); yield true; }
-            case 'a'   -> { state = state.selectAll();     requestRedraw(); yield true; }
-            case 'n'   -> { state = state.selectNone();    requestRedraw(); yield true; }
-            case TAB   -> { if (state.hasSelection()) callbacks.onConfirm(state.selectedEntities()); yield true; }
-            default    -> false;
-        };
+        List<Rect> contentLayout = Layout.horizontal()
+            .constraints(
+                Constraint.percentage(40),  // entity list
+                Constraint.percentage(60)   // detail panel
+            )
+            .split(mainLayout.get(1));
+
+        renderEntityList(frame, contentLayout.get(0), state);
+        renderEntityDetail(frame, contentLayout.get(1), state);
+        renderFooter(frame, mainLayout.get(2), state);
     }
 }
+
+// Key events handled externally (not inside the screen):
+// ↑/↓ → state.moveFocusUp()/moveFocusDown()
+// Space → state.toggleSelected()
+// A → state.selectAll()
+// N → state.selectNone()
+// / → enter filter mode
+// Tab → callbacks.onConfirm(state.selectedEntities())
+// ? → state.toggleHelp()
 ```
 
 ### 5.3 State Models
@@ -393,35 +428,57 @@ public class EntitySelectionScreen extends ToolkitApp {
 All state is **immutable records** with `with*` builder methods:
 
 ```java
+public record SplashState(
+    int totalFiles,
+    int scannedFiles,
+    String currentFile,
+    boolean scanComplete,
+    String errorMessage
+) {
+    // Factory: SplashState.initial()
+    // Transitions: withProgress(), withComplete(), withError()
+    // Computed: progressPercent()
+}
+
 public record EntitySelectionState(
     List<EntityDescriptor> entities,
     Set<String> selectedEntityNames,
-    String focusedEntityName,
-    boolean allSelected
+    int focusedIndex,
+    String filterText,
+    boolean showHelp
 ) {
-    public EntitySelectionState moveFocusDown() { /* ... */ }
-    public EntitySelectionState toggleSelected() { /* ... */ }
-    public EntitySelectionState selectAll() { /* ... */ }
-    public boolean hasSelection() { return !selectedEntityNames.isEmpty(); }
-    public List<EntityDescriptor> selectedEntities() { /* filter entities */ }
+    // Factory: EntitySelectionState.initial(List<EntityDescriptor>)
+    // Navigation: moveFocusUp(), moveFocusDown()
+    // Selection: toggleSelected(), selectAll(), selectNone()
+    // Filter: withFilter(String), filteredEntities()
+    // Help: toggleHelp()
+    // Queries: hasSelection(), selectedEntities(), focusedEntity()
 }
 
 public record LayerConfigState(
     EnumSet<Layer> selectedLayers,
     SpringVersion springVersion,
     MapperLib mapperLib,
-    MigrationTool migrationTool,
-    OpenApiFormat openApiFormat,
     ConflictStrategy conflictStrategy,
-    int estimatedFileCount
-) {}
+    int focusedIndex,
+    int entityCount
+) {
+    // Factory: LayerConfigState.initial(int entityCount)
+    // Layer: toggleLayer(Layer)
+    // Options: withSpringVersion(), withMapperLib(), withConflictStrategy()
+    // Navigation: moveFocusUp(), moveFocusDown()
+    // Computed: estimatedFileCount() = entityCount * selectedLayers.size()
+}
 
 public record PreviewState(
-    Map<EntityDescriptor, List<GeneratedFilePreview>> fileTree,
-    String selectedFilePath,
-    String previewContent,
+    List<GeneratedFile> files,
+    int selectedFileIndex,
     int scrollOffset
-) {}
+) {
+    // Factory: PreviewState.initial(List<GeneratedFile>)
+    // Navigation: selectPrevious(), selectNext(), scrollUp(), scrollDown()
+    // Query: selectedFile()
+}
 
 public record GenerationProgressState(
     int totalFiles,
@@ -430,71 +487,153 @@ public record GenerationProgressState(
     int errorFiles,
     String currentFile,
     List<FileGenerationResult> log,
-    GenerationStatus overallStatus        // IN_PROGRESS, DONE, ERROR
-) {}
+    OverallStatus overallStatus
+) {
+    public enum OverallStatus { IN_PROGRESS, DONE, ERROR }
+    // Factory: GenerationProgressState.initial(int totalFiles)
+    // Transitions: withFileResult(FileGenerationResult), withCurrentFile(String)
+    // Computed: progressPercent()
+    // Auto-transitions to DONE or ERROR when all files processed
+}
+
+public record ErrorState(
+    String errorMessage,
+    String filePath,       // nullable
+    boolean canRetry
+) {
+    // Factory: ErrorState.of(message), ErrorState.ofFile(message, filePath)
+}
 ```
 
 ### 5.4 Screen Layouts
 
-#### S2 — Entity Selection
+#### S1 — Splash / Scan
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ SpringForge TUI                          [?] Help  [q] Quit      │
+│                                                                  │
+│  ███████╗██████╗ ██████╗ ██╗███╗   ██╗ ██████╗ ███████╗...     │
+│  (cyan ASCII logo)                                               │
+│                                                                  │
+├──Project Scan────────────────────────────────────────────────────┤
+│  ████████████████████████████████████  Scan complete!            │
+├──────────────────────────────────────────────────────────────────┤
+│  Found 12 entity files                                           │
+│                                                                  │
+│  Press any key to continue...                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### S2 — Entity Selection
+```
+┌──SpringForge — Entity Selection──────────────────────────────────┐
 ├────────────────────┬─────────────────────────────────────────────┤
-│  📁 ENTITIES (12)  │  ENTITY DETAILS — User                      │
+│  Entities (12)     │  Entity Details — User                      │
 │                    │                                             │
-│  [✓] User          │  Package: com.example.model                 │
-│  [✓] Product       │  Fields:                                    │
-│  [ ] Order         │    • Long id  (@Id, @GeneratedValue)        │
-│  [ ] OrderItem     │    • String username  (not null)            │
-│  [ ] Category      │    • String email  (unique)                 │
-│  ...               │    • List<Order> orders  (@OneToMany)       │
+│  [x] User          │  Package: com.example.model                 │
+│  [x] Product       │  Namespace: jakarta                         │
+│  [ ] Order         │  Lombok: yes                                │
+│  [ ] OrderItem     │                                             │
+│  [ ] Category      │  Fields:                                    │
+│  ...               │    > Long id (@Id)                          │
+│                    │    - String username                         │
+│  [A] All  [N] None │    - String email unique                    │
+│  [/] Filter        │    - List orders @ONE_TO_MANY               │
 │                    │                                             │
-│  [A] All [N] None  │  Annotations: @Entity @Data @Builder        │
-│                    │  Namespace: jakarta                         │
+│                    │  Annotations: @Entity, @Data, @Builder      │
 ├────────────────────┴─────────────────────────────────────────────┤
-│  Selected: 2 entities   [Tab] → Layer Config   [Ctrl+G] Generate │
+│  Selected: 2 entities   [Tab] Layer Config  [Ctrl+G] Generate    │
+│  [?] Help  [q] Quit                                              │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 #### S3 — Layer Configuration
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ SpringForge TUI — Layer Configuration                            │
-├──────────────────────────┬───────────────────────────────────────┤
-│  LAYERS TO GENERATE      │  OPTIONS                              │
+┌──SpringForge — Layer Configuration───────────────────────────────┐
+├──Layers to Generate──────┬──Options──────────────────────────────┤
 │                          │                                       │
-│  [✓] DTO (Request)       │  Spring Boot:  ● 3.x  ○ 2.x          │
-│  [✓] DTO (Response)      │  Mapper:       ● MapStruct ○ ModelMap │
-│  [✓] Mapper              │  Migration:    ● Liquibase ○ Flyway   │
-│  [✓] Repository          │  OpenAPI:      ● YAML ○ JSON ○ None  │
-│  [✓] Service Interface   │  On conflict:  ● Skip ○ Overwrite     │
-│  [✓] ServiceImpl         │                                       │
-│  [✓] Controller          │                                       │
-│  [✓] File Upload         │                                       │
-│  [✓] Migration           │                                       │
-│  [✓] OpenAPI Spec        │                                       │
+│  [x] DTO (Request)       │  Spring Boot:  ● 3.x  ○ 2.x          │
+│  [x] DTO (Response)      │                                       │
+│  [x] Mapper              │  Mapper:       ● MapStruct ○ ModelMap │
+│  [x] Repository          │                                       │
+│  [x] Service Interface   │  On conflict:  ● Skip ○ Overwrite     │
+│  [x] ServiceImpl         │                                       │
+│  [x] Controller          │                                       │
+│  [x] File Upload         │                                       │
+│  [x] Liquibase Migration │                                       │
+│  [x] Flyway Migration    │                                       │
 ├──────────────────────────┴───────────────────────────────────────┤
-│  Entities: 2 │ Layers: 10 │ Files to create: ~40                 │
-│  [←] Back    [Tab] → Preview    [Ctrl+G] Generate Now            │
+│  Entities: 2 | Layers: 10 | Files: ~20                           │
+│  [←] Back  [Tab] Preview  [Ctrl+G] Generate                     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### S4 — Code Preview
+```
+┌──SpringForge — Code Preview──────────────────────────────────────┐
+├──Files (20)────────┬──UserRequestDto.java────────────────────────┤
+│                    │                                             │
+│  User              │   1 package com.example.dto;                │
+│     >> UserRequ... │   2                                         │
+│        UserResp... │   3 import lombok.Data;                     │
+│        UserMapp... │   4                                         │
+│  Product           │   5 @Data                                   │
+│     ProductRequ... │   6 public class UserRequestDto {           │
+│     ProductResp... │   7     private String username;            │
+│                    │   8     private String email;               │
+│                    │   9 }                                       │
+├────────────────────┴─────────────────────────────────────────────┤
+│  [↑/↓] Select file  [PgUp/PgDn] Scroll  [←] Back  [Ctrl+G] Gen │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 #### S5 — Generation Progress
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ SpringForge TUI — Generating...                                  │
-│                                                                  │
-│  ████████████████░░░░░░░░░░░  60%  (24/40 files)                │
+┌──SpringForge — Generating...─────────────────────────────────────┐
+├──────────────────────────────────────────────────────────────────┤
+│  ████████████████░░░░░░░░░░░  60%  (12/20 files)                │
+├──────────────────────────────────────────────────────────────────┤
 │  Current: UserServiceImpl.java                                   │
+├──Generation Log──────────────────────────────────────────────────┤
+│  [OK]   dto/UserRequestDto.java                                  │
+│  [OK]   dto/UserResponseDto.java                                 │
+│  [OK]   mapper/UserMapper.java                                   │
+│  [SKIP] controller/OrderController.java — already exists         │
+│  [ERR]  service/OrderServiceImpl.java — permission denied        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### S6 — Summary
+```
+┌──SpringForge — Generation Complete───────────────────────────────┐
+├──Summary─────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ✅  UserRequestDto.java        → dto/                           │
-│  ✅  UserResponseDto.java       → dto/                           │
-│  ✅  UserMapper.java            → mapper/                        │
-│  ✅  UserRepository.java        → repository/                    │
-│  ⏳  UserServiceImpl.java       → generating...                  │
-│  ░░  UserController.java        → pending                       │
-│  ⚠️  OrderController.java       → skipped (exists)              │
+│  Total files:   20                                               │
+│  Created:       18                                               │
+│  Skipped:       1                                                │
+│  Errors:        1                                                │
+│  Duration:      150ms                                            │
+├──Output Files────────────────────────────────────────────────────┤
+│  [OK]   dto/UserRequestDto.java                                  │
+│  [OK]   dto/UserResponseDto.java                                 │
+│  [SKIP] controller/OrderController.java — already exists         │
+│  ...                                                             │
+├──────────────────────────────────────────────────────────────────┤
+│  [q] Quit  [g] Generate more                                     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### S8 — Error
+```
+┌──SpringForge — Error─────────────────────────────────────────────┐
+├──Error Details────────────────────────────────────────────────────┤
+│                                                                  │
+│  Error: Permission denied                                        │
+│                                                                  │
+│  File: /output/dto/User.java                                     │
+│                                                                  │
+│  Please check the error above and choose an action.              │
+├──────────────────────────────────────────────────────────────────┤
+│  [R] Retry  [S] Skip  [Q] Quit                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -613,7 +752,7 @@ springforge-templates/src/main/resources/templates/
 │   └── ResponseDto.java.mustache
 ├── mapper/
 │   ├── MapstructMapper.java.mustache
-│   └── ModelMapperMapper.java.mustache
+│   └── ModelMapperConfig.java.mustache
 ├── repository/
 │   └── Repository.java.mustache
 ├── service/
@@ -622,11 +761,13 @@ springforge-templates/src/main/resources/templates/
 ├── controller/
 │   ├── Controller.java.mustache
 │   └── FileController.java.mustache
-├── migration/
-│   ├── liquibase.xml.mustache
-│   └── flyway.sql.mustache
-└── openapi/
-    └── openapi.yaml.mustache
+└── migration/
+    ├── Liquibase.xml.mustache
+    └── Flyway.sql.mustache
+```
+
+> **Note:** 11 templates total. No `openapi/` template directory exists yet — OpenAPI generation is planned but not implemented.
+> Template file names use PascalCase (e.g. `Liquibase.xml.mustache`, not `liquibase.xml.mustache`).
 ```
 
 ### 7.3 Template Context Variables
@@ -755,31 +896,35 @@ public class ConfigLoader {
 
 ```java
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record SpringForgeConfig(
-    ProjectConfig project,
-    GenerationConfig generation,
-    NamingConfig naming,
-    PackageConfig packages
-) {
-    public static SpringForgeConfig defaults() { ... }
+public class SpringForgeConfig {
+    String version = "1.0";
+    ProjectConfig project;
+    GenerationConfigYaml generation;
+    NamingConfig naming;
 }
 
-public record ProjectConfig(
-    String basePackage,
-    String srcDir,
-    String resourceDir,
-    String springBootVersion    // "2" or "3"
-) {}
+public static class ProjectConfig {
+    String basePackage = "com.example";
+    String srcDir = "src/main/java";
+    String resourceDir = "src/main/resources";
+    String springBootVersion = "3";
+}
 
-public record GenerationConfig(
-    String mapperLib,           // "mapstruct" | "modelmapper"
-    String migrationTool,       // "liquibase" | "flyway" | "none"
-    String openApiFormat,       // "yaml" | "json" | "none"
-    String onConflict,          // "skip" | "overwrite"
-    boolean lombok,
-    boolean mybatis
-) {}
+public static class GenerationConfigYaml {
+    String mapperLib = "mapstruct";       // "mapstruct" | "modelmapper"
+    String migrationTool = "none";        // "liquibase" | "flyway" | "none"
+    String openApiFormat = "none";        // "yaml" | "json" | "none"
+    String onConflict = "skip";           // "skip" | "overwrite"
+    boolean lombok = true;
+}
+
+public static class NamingConfig {
+    String apiPrefix = "/api";
+    String apiVersion = "v1";
+}
 ```
+
+> **Note:** `SpringForgeConfig` is a mutable POJO (not a record) for Jackson YAML binding compatibility. Package paths are derived at runtime in `GenerationConfig.dtoPackage()`, etc.
 
 ---
 
@@ -978,13 +1123,13 @@ TamboUI immediate-mode means full re-render on every frame. Simpler to reason ab
 
 ## 13. Open Technical Questions
 
-| # | Question | Decision Needed By |
-|---|----------|-------------------|
-| T-01 | GraalVM + TamboUI native binary — feasible? | End of Week 1 spike |
-| T-02 | Which TamboUI commit hash to pin? | M3 kickoff |
-| T-03 | Virtual threads for parallel generation — any TamboUI thread-safety issues? | M1 completion |
-| T-04 | Auto-detect Spring Boot version from `pom.xml`/`build.gradle`? Parsing strategy? | M4 |
-| T-05 | PATCH strategy: null-check fields in RequestDto, or separate PatchDto? | Before F-GEN-16 (P1) |
-| T-06 | Custom template validation at `init` vs. generation time? | M4 |
-| T-07 | Pluralization for non-English entity names — library or simple `+s` heuristic? | M2 |
-| T-08 | reflect-config.json — auto-generate via GraalVM tracing agent or maintain manually? | Week 1 spike |
+| # | Question | Decision Needed By | Status |
+|---|----------|-------------------|--------|
+| T-01 | GraalVM + TamboUI native binary — feasible? | End of Week 1 spike | **Resolved** — spike passed |
+| T-02 | Which TamboUI commit hash to pin? | M3 kickoff | **Resolved** — pinned to v0.2.0-SNAPSHOT |
+| T-03 | Virtual threads for parallel generation — any TamboUI thread-safety issues? | M1 completion | **Resolved** — BatchGenerator uses virtual threads successfully |
+| T-04 | Auto-detect Spring Boot version from `pom.xml`/`build.gradle`? Parsing strategy? | M4 | Open — deferred |
+| T-05 | PATCH strategy: null-check fields in RequestDto, or separate PatchDto? | Before F-GEN-16 (P1) | Open |
+| T-06 | Custom template validation at `init` vs. generation time? | M4 | Open |
+| T-07 | Pluralization for non-English entity names — library or simple `+s` heuristic? | M2 | Open |
+| T-08 | reflect-config.json — auto-generate via GraalVM tracing agent or maintain manually? | Week 1 spike | Open — springforge-native not yet created |
