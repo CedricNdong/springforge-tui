@@ -41,3 +41,6 @@ jacoco/
 # Distribution
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+/docs/api/
+/docs/PRD.md
+/docs/TECHNICAL_SPEC.md
