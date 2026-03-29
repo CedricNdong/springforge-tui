@@ -4,29 +4,80 @@
 
 [![Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/CedricNdong/springforge-tui)
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/projects/jdk/21/)
+[![Build](https://img.shields.io/github/actions/workflow/status/CedricNdong/springforge-tui/ci.yml?branch=develop&label=CI)](https://github.com/CedricNdong/springforge-tui/actions)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
----
-
-## What is SpringForge TUI?
 
 SpringForge TUI is a **terminal-first, IDE-agnostic CLI tool** that parses your Spring Boot `@Entity` classes and generates a complete, production-ready API stack in seconds.
 
 No special IDE required. Works on VS Code, Neovim, remote servers, and CI/CD pipelines.
 
-### What it generates
+---
+
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [What it generates](#what-it-generates)
+- [Tech Stack](#tech-stack)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Screenshots
+
+<!-- Add screenshots of the TUI screens here -->
+<!-- Example: -->
+<!-- ![Splash Screen](docs/screenshots/s1-splash.png) -->
+<!-- ![Entity Selection](docs/screenshots/s2-entity-selection.png) -->
+<!-- ![Layer Configuration](docs/screenshots/s3-layer-config.png) -->
+<!-- ![Code Preview](docs/screenshots/s4-preview.png) -->
+<!-- ![Generation Progress](docs/screenshots/s5-progress.png) -->
+<!-- ![Summary](docs/screenshots/s6-summary.png) -->
+
+> Screenshots coming soon. Run `springforge generate` to see the TUI in action.
+
+---
+
+## What it generates
 
 From your `@Entity` classes, SpringForge generates:
 
-- DTO (Request + Response) with proper relationship flattening
-- Mapper (MapStruct or ModelMapper)
-- Repository (Spring Data JPA)
-- Service + ServiceImpl with full CRUD
-- REST Controller with pagination
-- File Upload Controller
-- Liquibase migration (XML) / Flyway migration (SQL)
+| Layer | Output |
+|-------|--------|
+| DTO (Request + Response) | Proper relationship flattening, circular ref handling |
+| Mapper | MapStruct or ModelMapper |
+| Repository | Spring Data JPA |
+| Service + ServiceImpl | Full CRUD with pagination |
+| REST Controller | GET, POST, PUT, DELETE + paginated list |
+| File Upload Controller | Multipart file upload endpoint |
+| Liquibase migration | XML changelog |
+| Flyway migration | SQL migration script |
 
-Handles `@ManyToOne`, `@OneToMany`, `@ManyToMany`, `@OneToOne`, circular references, Lombok detection, and Spring Boot 2/3 namespace switching.
+Handles `@ManyToOne`, `@OneToMany`, `@ManyToMany`, `@OneToOne`, circular references, Lombok detection, and Spring Boot 2/3 namespace switching automatically.
+
+---
+
+## Tech Stack
+
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Language | Java | 21 LTS |
+| CLI Framework | Picocli | 4.7+ |
+| TUI Framework | TamboUI | 0.2.0-SNAPSHOT (pinned) |
+| AST Parser | JavaParser | 3.25+ |
+| Template Engine | Mustache.java | 0.9.x |
+| Config Parsing | Jackson YAML | 2.x |
+| Build Tool | Gradle (Groovy DSL) | 8.x |
+| Native Build | GraalVM native-image | 25+ |
+| Testing | JUnit 5 + AssertJ | Latest |
+| Integration Testing | Testcontainers (PostgreSQL) | 1.20.x |
+| Code Quality | Checkstyle + SpotBugs | Latest |
 
 ---
 
@@ -66,7 +117,7 @@ java -jar springforge-tui-*-all.jar generate --help
 
 ## Quick Start
 
-1. Navigate to your Spring Boot project root (where your `@Entity` classes are):
+1. Navigate to your Spring Boot project root:
 
 ```bash
 cd /path/to/your/spring-boot-project
@@ -75,11 +126,7 @@ cd /path/to/your/spring-boot-project
 2. Generate all API layers for all detected entities:
 
 ```bash
-# With native binary
 springforge generate --all
-
-# With fat JAR
-java -jar springforge-tui-*-all.jar generate --all
 ```
 
 SpringForge auto-scans `src/main/java/` for `@Entity` classes and generates DTOs, Mappers, Repositories, Services, and Controllers.
@@ -108,7 +155,7 @@ springforge generate --dir src/main/java/com/example/model --all
 ## Usage
 
 ```bash
-# Generate all layers for all entities (auto-scan src/main/java)
+# Generate all layers for all entities
 springforge generate --all
 
 # Generate only DTOs and Mappers
@@ -181,6 +228,7 @@ naming:
 ```
 
 Config resolution order (highest to lowest priority):
+
 1. CLI flags
 2. `--config <path>` — explicitly passed config file
 3. `./springforge.yml` in project root
@@ -188,7 +236,27 @@ Config resolution order (highest to lowest priority):
 
 ---
 
+## Project Structure
+
+```
+springforge-tui/
+├── springforge-cli/               ← Picocli commands, entry points
+├── springforge-tui-screens/       ← TamboUI screen implementations + TuiRenderer
+├── springforge-engine/            ← Core: scanner, parser, renderer, writer
+├── springforge-templates/         ← 11 Mustache templates (built-in)
+├── springforge-config/            ← springforge.yml parsing + config resolution
+└── springforge-integration-tests/ ← E2E tests with Testcontainers PostgreSQL
+```
+
+---
+
 ## Development
+
+### Prerequisites
+
+- Java 21+
+- Docker (for integration tests with Testcontainers)
+- GraalVM 25+ (optional, for native binary)
 
 ### Build from source
 
@@ -199,45 +267,65 @@ Config resolution order (highest to lowest priority):
 # Run unit tests
 ./gradlew test
 
-# Run integration tests (requires Docker for Testcontainers)
+# Run integration tests (requires Docker)
 ./gradlew :springforge-integration-tests:integrationTest
 
-# Run locally via Gradle
+# Run locally
 ./gradlew :springforge-cli:run --args="generate --help"
-
-# Run spike command (proof-of-concept)
-./gradlew :springforge-cli:run --args="spike path/to/Entity.java"
 ```
 
 ### Build distributable artifacts
 
 ```bash
-# Fat JAR — single JAR with all dependencies
+# Fat JAR
 ./gradlew :springforge-cli:fatJar
-# Output: springforge-cli/build/libs/springforge-cli-*-all.jar
 
-# Native binary (requires GraalVM 21+ with native-image)
+# Native binary (requires GraalVM)
 ./gradlew :springforge-cli:nativeCompile
-# Output: springforge-cli/build/native/nativeCompile/springforge
-```
-
-### Module structure
-
-```
-springforge-tui/
-├── springforge-cli/               ← Picocli commands, entry points
-├── springforge-tui-screens/       ← TamboUI screen implementations + TuiRenderer interface
-├── springforge-engine/            ← Core generation logic (scanner, parser, renderer, writer)
-├── springforge-templates/         ← Mustache templates (11 built-in)
-├── springforge-config/            ← springforge.yml parsing + config resolution
-└── springforge-integration-tests/ ← E2E tests with Testcontainers PostgreSQL
 ```
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch from `develop`
+   ```bash
+   git checkout develop
+   git checkout -b feature/my-feature
+   ```
+3. Make your changes
+4. Run tests to verify
+   ```bash
+   ./gradlew test
+   ```
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
+   ```bash
+   git commit -m "feat(engine): add support for custom templates"
+   ```
+6. Push to your branch
+   ```bash
+   git push origin feature/my-feature
+   ```
+7. Open a Pull Request **targeting `develop`** (not `main`)
+
+> PRs targeting `main` directly will be rejected by CI. Only `develop` can be merged into `main`.
+
+If you find a bug or have a feature request, please [open an issue](https://github.com/CedricNdong/springforge-tui/issues).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full details on branching strategy, commit conventions, and definition of done.
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [PRD](docs/PRD.md) | Product requirements, milestones, current status |
+| [Technical Design](docs/TECHNICAL_SPEC.md) | Architecture, data models, implementation details |
+| [Contributing](CONTRIBUTING.md) | Branching strategy, commit conventions |
 
 ---
 
