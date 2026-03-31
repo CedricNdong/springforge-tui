@@ -2,10 +2,8 @@
 
 > *"The full power of API Generator — in your terminal, for every developer, on every machine."*
 
-[![Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/CedricNdong/springforge-tui)
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/projects/jdk/21/)
 [![CI](https://github.com/CedricNdong/springforge-tui/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/CedricNdong/springforge-tui/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 SpringForge TUI is a **terminal-first, IDE-agnostic CLI tool** that parses your Spring Boot `@Entity` classes and generates a complete, production-ready API stack in seconds.
 
