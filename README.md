@@ -2,10 +2,10 @@
 
 > *"The full power of API Generator — in your terminal, for every developer, on every machine."*
 
-[![Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/CedricNdong/springforge-tui)
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/projects/jdk/21/)
-[![Build](https://img.shields.io/github/actions/workflow/status/CedricNdong/springforge-tui/ci.yml?branch=develop&label=CI)](https://github.com/CedricNdong/springforge-tui/actions)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://github.com/CedricNdong/springforge-tui/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/CedricNdong/springforge-tui/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/CedricNdong/springforge-tui/branch/develop/graph/badge.svg)](https://codecov.io/gh/CedricNdong/springforge-tui)
+[![GitHub release](https://img.shields.io/github/v/release/CedricNdong/springforge-tui)](https://github.com/CedricNdong/springforge-tui/releases/latest)
 
 SpringForge TUI is a **terminal-first, IDE-agnostic CLI tool** that parses your Spring Boot `@Entity` classes and generates a complete, production-ready API stack in seconds.
 
@@ -345,16 +345,6 @@ Contributions are welcome! Here's how to get started:
 If you find a bug or have a feature request, please [open an issue](https://github.com/CedricNdong/springforge-tui/issues).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full details on branching strategy, commit conventions, and definition of done.
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [PRD](docs/PRD.md) | Product requirements, milestones, current status |
-| [Technical Design](docs/TECHNICAL_SPEC.md) | Architecture, data models, implementation details |
-| [Contributing](CONTRIBUTING.md) | Branching strategy, commit conventions |
 
 ---
 
