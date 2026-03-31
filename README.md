@@ -31,16 +31,45 @@ No special IDE required. Works on VS Code, Neovim, remote servers, and CI/CD pip
 
 ## Screenshots
 
-<!-- Add screenshots of the TUI screens here -->
-<!-- Example: -->
-<!-- ![Splash Screen](docs/screenshots/s1-splash.png) -->
-<!-- ![Entity Selection](docs/screenshots/s2-entity-selection.png) -->
-<!-- ![Layer Configuration](docs/screenshots/s3-layer-config.png) -->
-<!-- ![Code Preview](docs/screenshots/s4-preview.png) -->
-<!-- ![Generation Progress](docs/screenshots/s5-progress.png) -->
-<!-- ![Summary](docs/screenshots/s6-summary.png) -->
+### S1 — Splash / Scan
 
-> Screenshots coming soon. Run `springforge generate` to see the TUI in action.
+The splash screen displays the SpringForge logo and scans your project for `@Entity` classes.
+
+![Splash Screen](docs/screenshots/s1-splash.png)
+
+### S2 — Entity Selection
+
+Browse all discovered entities with a detail panel showing fields, types, annotations, and relationships. Filter, select/deselect individually or in bulk.
+
+![Entity Selection](docs/screenshots/s2-entity-selection.png)
+
+### S3 — Layer Configuration
+
+Choose which layers to generate and configure options: Spring Boot version, mapper library, and conflict strategy.
+
+![Layer Configuration](docs/screenshots/s3-layer-config.png)
+
+### S4 — Code Preview
+
+Review every generated file before writing to disk. Navigate between files and scroll through the code with syntax highlighting.
+
+![Code Preview](docs/screenshots/s4-preview.png)
+
+![Code Preview](docs/screenshots/s4-preview2.png)
+
+### S5 — Generation Progress
+
+Real-time progress bar with per-file status log showing created, skipped, and errored files.
+
+![Generation Progress](docs/screenshots/s5-progress.png)
+
+![Generation Progress](docs/screenshots/s5-progress2.png)
+
+### S6 — Summary
+
+Final report with file counts, duration, and a complete list of generated files.
+
+![Summary](docs/screenshots/s6-summary.png)
 
 ---
 
