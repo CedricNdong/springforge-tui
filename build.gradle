@@ -11,6 +11,7 @@ ext.tamboUiVersion = '0.2.0-SNAPSHOT'
 
 subprojects {
     apply plugin: 'java'
+    apply plugin: 'jacoco'
     apply plugin: 'com.github.spotbugs'
     apply plugin: 'checkstyle'
 
@@ -52,6 +53,15 @@ subprojects {
         useJUnitPlatform()
         reports {
             junitXml.required = true
+        }
+        finalizedBy jacocoTestReport
+    }
+
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            xml.required = true
+            html.required = true
         }
     }
 

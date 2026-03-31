@@ -4,6 +4,8 @@
 
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/projects/jdk/21/)
 [![CI](https://github.com/CedricNdong/springforge-tui/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/CedricNdong/springforge-tui/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/CedricNdong/springforge-tui/branch/develop/graph/badge.svg)](https://codecov.io/gh/CedricNdong/springforge-tui)
+[![GitHub release](https://img.shields.io/github/v/release/CedricNdong/springforge-tui)](https://github.com/CedricNdong/springforge-tui/releases/latest)
 
 SpringForge TUI is a **terminal-first, IDE-agnostic CLI tool** that parses your Spring Boot `@Entity` classes and generates a complete, production-ready API stack in seconds.
 
