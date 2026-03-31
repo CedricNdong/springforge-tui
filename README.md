@@ -348,16 +348,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full details on branching strategy, c
 
 ---
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [PRD](docs/PRD.md) | Product requirements, milestones, current status |
-| [Technical Design](docs/TECHNICAL_SPEC.md) | Architecture, data models, implementation details |
-| [Contributing](CONTRIBUTING.md) | Branching strategy, commit conventions |
-
----
-
 ## License
 
 MIT © Cedric Ndong
