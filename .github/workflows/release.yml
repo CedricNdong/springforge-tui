@@ -85,3 +85,4 @@ jobs:
             release-assets/springforge-linux-x86_64
             release-assets/springforge-macos-aarch64
             install.sh
+            uninstall.sh
