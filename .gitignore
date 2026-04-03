@@ -29,6 +29,9 @@ logs/
 # Setup script — ne doit pas être versionné
 setup_github.sh
 
+# Claude Code
+CLAUDE.md
+
 # Secrets & config overrides
 *.env
 .env.local
