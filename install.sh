@@ -87,7 +87,25 @@ main() {
     fi
 
     echo ""
-    echo "SpringForge ${version} installed to ${INSTALL_DIR}/${BINARY_NAME}"
+
+    # Post-install verification
+    local expected_version="${version#v}"
+    local actual_version
+    if ! actual_version=$("${INSTALL_DIR}/${BINARY_NAME}" --version 2>&1); then
+        echo "Warning: Binary installed but failed to execute." >&2
+        echo "This may indicate a missing library or incompatible platform." >&2
+        echo "Try running: ${INSTALL_DIR}/${BINARY_NAME} --version" >&2
+        exit 1
+    fi
+
+    if echo "$actual_version" | grep -q "$expected_version"; then
+        echo "SpringForge ${version} installed to ${INSTALL_DIR}/${BINARY_NAME}"
+        echo "Verified: ${actual_version}"
+    else
+        echo "SpringForge installed to ${INSTALL_DIR}/${BINARY_NAME}"
+        echo "Warning: Version mismatch — expected ${expected_version}, got: ${actual_version}" >&2
+    fi
+
     echo "Run 'springforge --help' to get started."
 }
 
