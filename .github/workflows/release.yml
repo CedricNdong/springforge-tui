@@ -40,7 +40,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build native image
-        run: ./gradlew :springforge-cli:nativeCompile
+        run: ./gradlew :springforge-cli:nativeCompile -PreleaseVersion=${GITHUB_REF_NAME#v}
 
       - name: Rename binary
         run: mv springforge-cli/build/native/nativeCompile/springforge springforge-cli/build/native/nativeCompile/${{ matrix.artifact }}
