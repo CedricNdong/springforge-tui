@@ -58,17 +58,54 @@ jobs:
   # ──────────────────────────────────────────────
   # Create GitHub Release with all binaries
   # ──────────────────────────────────────────────
-  release:
-    name: Create GitHub Release
+  # ──────────────────────────────────────────────
+  # Build fat JAR for Java users
+  # ──────────────────────────────────────────────
+  build-jar:
+    name: Build Fat JAR
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: build-native
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Download all binary artifacts
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build fat JAR
+        run: ./gradlew :springforge-cli:fatJar -PreleaseVersion=${GITHUB_REF_NAME#v}
+
+      - name: Rename JAR
+        run: mv springforge-cli/build/libs/springforge-cli-*-all.jar springforge-cli/build/libs/springforge-tui-${GITHUB_REF_NAME#v}-all.jar
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fat-jar
+          path: springforge-cli/build/libs/springforge-tui-*-all.jar
+          retention-days: 1
+
+  # ──────────────────────────────────────────────
+  # Create GitHub Release with all artifacts
+  # ──────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: [ build-native, build-jar ]
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
@@ -84,5 +121,6 @@ jobs:
           files: |
             release-assets/springforge-linux-x86_64
             release-assets/springforge-macos-aarch64
+            release-assets/springforge-tui-*-all.jar
             install.sh
             uninstall.sh
