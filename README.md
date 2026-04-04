@@ -112,7 +112,15 @@ Handles `@ManyToOne`, `@OneToMany`, `@ManyToMany`, `@OneToOne`, circular referen
 
 ## Installation
 
-### Option 1 — Native binary (recommended)
+### Option 1 — Fat JAR (recommended, requires Java 21+)
+
+Download `springforge-tui-<version>-all.jar` from the [releases page](https://github.com/CedricNdong/springforge-tui/releases) and run:
+
+```bash
+java -jar springforge-tui-1.2.0-all.jar generate --help
+```
+
+### Option 2 — Native binary
 
 Download the latest release for your platform:
 
@@ -138,14 +146,6 @@ curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/
 
 ```bash
 curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/uninstall.sh | bash
-```
-
-### Option 2 — Fat JAR (requires Java 21+)
-
-Download `springforge-tui-*-all.jar` from the [releases page](https://github.com/CedricNdong/springforge-tui/releases) and run:
-
-```bash
-java -jar springforge-tui-*-all.jar generate --help
 ```
 
 ---
@@ -226,14 +226,20 @@ springforge generate --all --dry-run
 | `--repository` | Generate repository only |
 | `--service` | Generate service + impl only |
 | `--controller` | Generate controller only |
-| `--migration` | Generate database migration only |
+| `--migration` | Generate Liquibase/Flyway migration only |
+| `--openapi` | Generate OpenAPI spec only |
+| `--upload` | Include file upload endpoint |
 | `--dry-run` | Show what would be generated without writing |
 | `--overwrite` | Overwrite existing files (default: skip) |
 | `-o, --output <dir>` | Override output base directory |
 | `--spring-version <2\|3>` | Target Spring Boot version (default: 3) |
 | `--mapper-lib <lib>` | Mapper library: `mapstruct` or `modelmapper` |
 | `--db-migration <tool>` | Migration tool: `liquibase` or `flyway` |
+| `--openapi-format <fmt>` | OpenAPI format: `yaml` or `json` |
+| `-c, --config <path>` | Path to `springforge.yml` (overrides local file) |
+| `-v, --verbose` | Enable verbose output |
 | `--no-tui` | Non-interactive pipeline mode |
+| `--no-color` | Disable colored output |
 
 ---
 
