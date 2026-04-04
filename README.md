@@ -134,6 +134,12 @@ Or use the install script:
 curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/install.sh | bash
 ```
 
+### Uninstall
+
+```bash
+curl -L https://github.com/CedricNdong/springforge-tui/releases/latest/download/uninstall.sh | bash
+```
+
 ### Option 2 — Fat JAR (requires Java 21+)
 
 Download `springforge-tui-*-all.jar` from the [releases page](https://github.com/CedricNdong/springforge-tui/releases) and run:
