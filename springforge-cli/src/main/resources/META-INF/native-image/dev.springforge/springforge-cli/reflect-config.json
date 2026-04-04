@@ -303,6 +303,32 @@
   },
 
   {
+    "name": "dev.tamboui.backend.jline3.JLineBackendProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.tamboui.backend.jline3.JLineBackend",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.tamboui.capability.core.CoreCapabilityProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.tamboui.terminal.BackendProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.tamboui.capability.CapabilityProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+
+  {
     "name": "org.slf4j.simple.SimpleServiceProvider",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true

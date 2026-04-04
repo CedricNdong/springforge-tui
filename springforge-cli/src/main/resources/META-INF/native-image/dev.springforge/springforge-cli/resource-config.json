@@ -8,7 +8,16 @@
         "pattern": ".*\\.java$"
       },
       {
-        "pattern": "dev/tamboui/tui/bindings/.*\\.properties$"
+        "pattern": "dev/tamboui/.*\\.properties$"
+      },
+      {
+        "pattern": "META-INF/services/dev\\.tamboui\\..*"
+      },
+      {
+        "pattern": "org/jline/utils/.*\\.caps$"
+      },
+      {
+        "pattern": "org/jline/nativ/.*"
       },
       {
         "pattern": "com/github/javaparser/.*\\.properties$"
